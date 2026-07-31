@@ -1,0 +1,42 @@
+name: Deploy site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/deploy.yml'
+  pull_request:
+    paths:
+      - 'site/**'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # Fail loudly rather than deploying a half-configured site.
+      - name: Verify required files
+        run: |
+          set -euo pipefail
+          for f in site/index.html site/404.html site/robots.txt site/sitemap.xml site/_headers; do
+            test -f "$f" || { echo "::error::missing $f"; exit 1; }
+          done
+          echo "All required files present."
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Pushes to main go to production; PRs get a preview URL automatically.
+          command: pages deploy site --project-name=bountycharts --branch=${{ github.head_ref || github.ref_name }}

@@ -1,0 +1,10 @@
+# Cloudflare Pages path-level redirects.
+#
+# Apex/www canonicalisation is deliberately NOT handled here. A request to
+# www.bountycharts.com only reaches this file if www is already routed to the
+# Pages project, so it is not a reliable place to enforce a canonical host.
+# Do it at the edge with a Cloudflare Redirect Rule instead — see
+# docs/deployment/cloudflare.md, step 6.
+#
+# Add path redirects below as real routes ship, one per line:
+#   /old-path  /new-path  301
