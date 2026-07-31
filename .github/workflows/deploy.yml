@@ -5,10 +5,13 @@ on:
     branches: [main]
     paths:
       - 'site/**'
+      - 'scripts/validate_site.py'
       - '.github/workflows/deploy.yml'
   pull_request:
     paths:
       - 'site/**'
+      - 'scripts/validate_site.py'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 concurrency:
@@ -16,7 +19,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The real gate. Runs everywhere, needs no credentials, and blocks deploy.
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate site
+        run: python3 scripts/validate_site.py
+
   deploy:
+    needs: validate
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -24,19 +36,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Fail loudly rather than deploying a half-configured site.
-      - name: Verify required files
+      # Cloudflare credentials are owner-supplied and may not exist yet. Absent
+      # credentials mean "not configured", not "broken" — so detect and skip
+      # rather than failing the check. Deploy starts automatically once the
+      # secrets are added; no workflow edit needed.
+      - name: Check Cloudflare credentials
+        id: creds
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          set -euo pipefail
-          for f in site/index.html site/404.html site/robots.txt site/sitemap.xml site/_headers; do
-            test -f "$f" || { echo "::error::missing $f"; exit 1; }
-          done
-          echo "All required files present."
+          if [ -n "$TOKEN" ] && [ -n "$ACCOUNT" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Deploy to Cloudflare Pages
+        if: steps.creds.outputs.ready == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # Pushes to main go to production; PRs get a preview URL automatically.
+          # Pushes to main go to production; PRs get a preview URL.
           command: pages deploy site --project-name=bountycharts --branch=${{ github.head_ref || github.ref_name }}
+
+      - name: Report skipped deploy
+        if: steps.creds.outputs.ready != 'true'
+        run: |
+          echo "::notice title=Deploy skipped::Cloudflare credentials are not configured, so nothing was published. Site validation passed and the build is deploy-ready. Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID (docs/deployment/cloudflare.md, steps 3-4) and this job will publish automatically."
