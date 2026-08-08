@@ -150,7 +150,7 @@ Then:
 
 These are deliberate deferrals, not omissions:
 
-1. **CSP allows `'unsafe-inline'` for scripts.** The page currently ships zero executable JavaScript — the only `<script>` is JSON-LD structured data, which some browsers evaluate against `script-src`. When real JavaScript ships, drop `'unsafe-inline'` and move to nonces or hashes. Tracked in `site/_headers`.
+1. ~~**CSP allows `'unsafe-inline'` for scripts.**~~ **Resolved.** The stated reason — that some browsers evaluate JSON-LD against `script-src` — did not reproduce. Serving the real page under three policies in Chromium produced zero CSP violations in every case, and the JSON-LD stayed parseable even under `script-src 'none'`, because `application/ld+json` is a data block rather than an executable script. `'unsafe-inline'` has been dropped from `script-src`; `style-src` keeps it, because the page genuinely does use inline `<style>`. When real JavaScript ships it must come from a same-origin file, or move to nonces/hashes. Not verified in Safari or Firefox.
 2. **No email capture.** Deliberate — a pre-launch capture form needs an email service provider, which is a recurring spend and therefore a decision reserved to the owner under the agency protocol (`GT` escalation rules). Do not add a form that posts nowhere.
 3. **No affiliate links yet.** When they land, an affiliate disclosure becomes legally required before the first link ships, not after. See the `legal-compliance` agent brief in `prompts/agency-handoff-prompt.md`.
 4. **Apex A/AAAA records.** Not needed — Pages custom domains use a managed CNAME with CNAME flattening at the apex. Do not add manual A records; they will conflict.

@@ -236,6 +236,46 @@ class RepoDoesNotTrackBuildArtifacts(unittest.TestCase):
         self.assertEqual(offenders, [], f"build artifacts are tracked: {offenders}")
 
 
+class CspDoesNotAllowInlineScript(unittest.TestCase):
+    """The page ships zero executable JavaScript. The deployment doc deferred
+    removing 'unsafe-inline' on the belief that some browsers evaluate JSON-LD
+    against script-src; serving the real page under script-src 'none' in
+    Chromium produced zero violations and left the JSON-LD parseable, so the
+    allowance bought nothing."""
+
+    @staticmethod
+    def _csp():
+        headers = (ROOT / "site" / "_headers").read_text(encoding="utf-8")
+        match = re.search(r"Content-Security-Policy:\s*(.+)", headers)
+        assert match, "no Content-Security-Policy in site/_headers"
+        return match.group(1).strip()
+
+    @staticmethod
+    def _directive(csp, name):
+        for part in csp.split(";"):
+            tokens = part.strip().split()
+            if tokens and tokens[0] == name:
+                return tokens[1:]
+        return []
+
+    def test_script_src_does_not_allow_unsafe_inline(self):
+        self.assertNotIn("'unsafe-inline'", self._directive(self._csp(), "script-src"))
+
+    def test_style_src_still_allows_inline(self):
+        """The page really does use inline <style>; removing this would break it."""
+        self.assertIn("'unsafe-inline'", self._directive(self._csp(), "style-src"))
+
+    def test_no_executable_script_is_served(self):
+        """Guards the assumption the tightened policy rests on."""
+        for page in sorted(SITE.glob("*.html")):
+            with self.subTest(page=page.name):
+                src = page.read_text(encoding="utf-8")
+                for tag in re.findall(r"<script\b[^>]*>", src, re.I):
+                    self.assertIn(
+                        "application/ld+json", tag.lower(),
+                        f"{page.name} serves an executable script: {tag}")
+
+
 class LandmarksArePresent(unittest.TestCase):
     """A page whose content sits in no landmark gives a screen-reader user no
     way to skip to it. 404.html already got this right; index.html did not."""
