@@ -202,5 +202,18 @@ class GateCatchesCspBlockedSubresources(unittest.TestCase):
         self.assertEqual(code, 0, "a same-origin subresource must not be flagged:\n" + out)
 
 
+class LandmarksArePresent(unittest.TestCase):
+    """A page whose content sits in no landmark gives a screen-reader user no
+    way to skip to it. 404.html already got this right; index.html did not."""
+
+    def test_every_page_has_a_main_landmark(self):
+        for page in sorted(SITE.glob("*.html")):
+            with self.subTest(page=page.name):
+                src = page.read_text(encoding="utf-8")
+                self.assertRegex(
+                    src, r"<main[\s>]",
+                    f"{page.name} has no <main> landmark")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

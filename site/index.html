@@ -75,6 +75,13 @@
     flex-direction: column;
     gap: 4rem;
   }
+  /* <main> is a grouping landmark, not a layout step: it carries the same
+     column flow so the 4rem rhythm is identical with or without it. */
+  main {
+    display: flex;
+    flex-direction: column;
+    gap: 4rem;
+  }
 
   /* wordmark */
   .brand {
@@ -231,6 +238,8 @@
     <span class="tag">TCG price × meta</span>
   </header>
 
+  <main>
+
   <div class="hero">
     <h1>What will this deck <span class="accent">cost you</span> next week?</h1>
     <p class="lede">Every trading card game has a dozen tools that tell you which deck is best. None of them tell you what it will cost to build by the time you finish reading. BountyCharts sits on that intersection — price movement against metagame shift.</p>
@@ -298,6 +307,8 @@
     <p class="tight">Pre-launch. The market research behind this is finished and public — a primary-source audit of the 2024–2026 TCG market, including a unit-economics model and a fact-check of the industry figures most commonly cited. The product is in build.</p>
     <p class="tight"><a href="https://github.com/kevynsgrin-a11y/BountyCharts">Read the research on GitHub →</a></p>
   </section>
+
+  </main>
 
   <footer>
     <p>BountyCharts is an independent project. It is not affiliated with, endorsed by, or sponsored by Riot Games, The Pokémon Company, Bandai Namco, Wizards of the Coast, or any card game publisher. All game names and trademarks belong to their respective owners.</p>
