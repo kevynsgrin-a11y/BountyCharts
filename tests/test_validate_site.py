@@ -225,6 +225,17 @@ class SitemapIsDated(unittest.TestCase):
             "every <url> entry needs its own <lastmod>")
 
 
+class RepoDoesNotTrackBuildArtifacts(unittest.TestCase):
+    """Compiled bytecode encodes the interpreter version and the source mtime,
+    so it goes stale silently and differs per contributor."""
+
+    def test_no_compiled_bytecode_is_tracked(self):
+        tracked = subprocess.run(
+            ["git", "ls-files"], cwd=ROOT, capture_output=True, text=True).stdout.split()
+        offenders = [f for f in tracked if f.endswith((".pyc", ".pyo")) or "__pycache__" in f]
+        self.assertEqual(offenders, [], f"build artifacts are tracked: {offenders}")
+
+
 class LandmarksArePresent(unittest.TestCase):
     """A page whose content sits in no landmark gives a screen-reader user no
     way to skip to it. 404.html already got this right; index.html did not."""
