@@ -276,6 +276,22 @@ class CspDoesNotAllowInlineScript(unittest.TestCase):
                         f"{page.name} serves an executable script: {tag}")
 
 
+class PrintStylesheetExists(unittest.TestCase):
+    """prefers-color-scheme still applies when printing, so a reader whose OS
+    is in dark mode printed the dark palette as a near-black page fill."""
+
+    def test_index_has_a_print_block_that_restores_a_light_background(self):
+        css = (SITE / "index.html").read_text(encoding="utf-8")
+        match = re.search(r"@media print \{(.*?)\n  \}\n", css, re.S)
+        self.assertIsNotNone(match, "no @media print block")
+        self.assertIn("--bg: #FFFFFF", match.group(1))
+
+    def test_print_block_reveals_link_urls(self):
+        css = (SITE / "index.html").read_text(encoding="utf-8")
+        self.assertRegex(css, r'a\[href\^="http"\]::after')
+        self.assertIn("attr(href)", css)
+
+
 class LandmarksArePresent(unittest.TestCase):
     """A page whose content sits in no landmark gives a screen-reader user no
     way to skip to it. 404.html already got this right; index.html did not."""

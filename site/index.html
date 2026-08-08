@@ -228,6 +228,31 @@
   @media (prefers-reduced-motion: reduce) {
     * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
   }
+
+  /* Print. Without this, a reader whose OS is in dark mode prints the dark
+     palette — a near-black page-fill — because prefers-color-scheme still
+     applies to the print stylesheet. Force the light palette back, and print
+     the one outbound URL, which is otherwise lost the moment the page leaves
+     the screen. */
+  @media print {
+    :root {
+      --bg: #FFFFFF; --surface: #FFFFFF; --ink: #000000; --ink-soft: #333333;
+      --ink-faint: #555555; --rule: #BBBBBB; --gold: #6B4E15; --gold-bright: #6B4E15;
+      --up: #10553F; --down: #7E2A22;
+    }
+    .wrap { padding: 0; gap: 2rem; max-width: none; }
+    main { gap: 2rem; }
+    a { text-decoration: underline; }
+    a[href^="http"]::after {
+      content: " (" attr(href) ")";
+      font-family: var(--mono);
+      font-size: 0.75em;
+      word-break: break-all;
+    }
+    .ticker { break-inside: avoid; }
+    .cell.sample::after { opacity: 1; }
+    section, .note { break-inside: avoid; }
+  }
 </style>
 </head>
 <body>
