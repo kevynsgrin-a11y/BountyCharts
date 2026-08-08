@@ -202,6 +202,29 @@ class GateCatchesCspBlockedSubresources(unittest.TestCase):
         self.assertEqual(code, 0, "a same-origin subresource must not be flagged:\n" + out)
 
 
+class SitemapIsDated(unittest.TestCase):
+    """changefreq without lastmod tells a crawler how often to come back but
+    never whether anything actually changed."""
+
+    def test_sitemap_declares_lastmod(self):
+        src = (SITE / "sitemap.xml").read_text(encoding="utf-8")
+        self.assertIn("<lastmod>", src)
+
+    def test_lastmod_is_a_valid_iso_date(self):
+        src = (SITE / "sitemap.xml").read_text(encoding="utf-8")
+        found = re.findall(r"<lastmod>([^<]+)</lastmod>", src)
+        self.assertTrue(found, "no <lastmod> element found")
+        for value in found:
+            self.assertRegex(value.strip(), r"^\d{4}-\d{2}-\d{2}$")
+
+    def test_every_url_entry_has_a_lastmod(self):
+        src = (SITE / "sitemap.xml").read_text(encoding="utf-8")
+        self.assertEqual(
+            len(re.findall(r"<url>", src)),
+            len(re.findall(r"<lastmod>", src)),
+            "every <url> entry needs its own <lastmod>")
+
+
 class LandmarksArePresent(unittest.TestCase):
     """A page whose content sits in no landmark gives a screen-reader user no
     way to skip to it. 404.html already got this right; index.html did not."""
