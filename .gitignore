@@ -1,0 +1,10 @@
+# Python bytecode. scripts/__pycache__/validate_site.cpython-311.pyc was
+# committed in a1b150f; it is a build artifact and tracks the interpreter
+# version, so it goes stale silently and differs per contributor.
+__pycache__/
+*.py[cod]
+
+# Local scratch
+.venv/
+venv/
+.DS_Store

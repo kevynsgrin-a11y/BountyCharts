@@ -6,11 +6,15 @@ on:
     paths:
       - 'site/**'
       - 'scripts/validate_site.py'
+      - 'tests/**'
+      - 'models/**'
       - '.github/workflows/deploy.yml'
   pull_request:
     paths:
       - 'site/**'
       - 'scripts/validate_site.py'
+      - 'tests/**'
+      - 'models/**'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
@@ -24,8 +28,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Validate site
         run: python3 scripts/validate_site.py
+
+      # Nothing tested the gate itself until now, so a change to
+      # validate_site.py could silently stop catching things.
+      - name: Test the gate
+        run: python3 -m unittest discover -s tests -v
+
+      # models/unit_economics.py is the file README points at for every revenue
+      # figure in the deep dive, and it had no check of any kind. This is a
+      # smoke test, not a proof: it asserts the documented invocations still
+      # run and still produce all three revenue lines.
+      - name: Smoke-test the unit-economics model
+        run: |
+          set -euo pipefail
+          python3 models/unit_economics.py > /tmp/baseline.txt
+          python3 models/unit_economics.py --first-click-win-rate 1.0 > /dev/null
+          python3 models/unit_economics.py --digital-share 0.8 --sessions 100000 > /dev/null
+          grep -q 'Affiliate' /tmp/baseline.txt
+          grep -q 'Subscriber LTV' /tmp/baseline.txt
 
   deploy:
     needs: validate

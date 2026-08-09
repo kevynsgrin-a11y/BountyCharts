@@ -25,13 +25,24 @@ VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input",
 
 REQUIRED = ["index.html", "404.html", "robots.txt", "sitemap.xml", "_headers"]
 
-# Meta that must be present on every indexable page.
+# Markup that must be present on every indexable page. These are genuinely
+# document-level facts, so a substring search over the HTML is the right test.
 REQUIRED_META = [
     ('lang="en"', "lang attribute"),
     ("<title>", "title"),
     ('name="viewport"', "viewport"),
+]
+
+# Theming rules that must exist in the page's CSS. These are deliberately NOT
+# checked against the raw HTML: <meta name="theme-color" media="(prefers-color-
+# scheme: dark)"> contains the string "prefers-color-scheme: dark" while being
+# browser-chrome colour rather than a stylesheet, so a whole-document substring
+# search passes even when every dark-theme rule has been deleted. Checking the
+# CSS instead closes that hole, and simultaneously lets a contributor move the
+# CSS into a stylesheet without the gate reporting it as deleted dark mode.
+REQUIRED_CSS = [
     ("prefers-color-scheme: dark", "dark theme"),
-    ('data-theme="dark"', "theme override"),
+    ('[data-theme="dark"]', "theme override"),
 ]
 
 # Landing page carries the SEO surface that the 404 deliberately does not.
@@ -89,6 +100,28 @@ def check_required_files() -> None:
             fail(f"missing required file: site/{name}")
 
 
+def css_for(src: str) -> str:
+    """Every rule that styles a page: inline <style> blocks plus any local
+    stylesheet it links. Returns the concatenated CSS text.
+
+    Collecting linked stylesheets is what lets the theming checks survive the
+    single most likely first step of a redesign -- moving the CSS out of the
+    document and into a file.
+    """
+    css = "\n".join(re.findall(r"<style[^>]*>(.*?)</style>", src, re.S | re.I))
+    for tag in re.findall(r"<link\b[^>]*>", src, re.I):
+        rel = re.search(r'rel\s*=\s*["\']([^"\']*)["\']', tag, re.I)
+        if not rel or "stylesheet" not in rel.group(1).lower().split():
+            continue
+        href = re.search(r'href\s*=\s*["\']([^"\']+)["\']', tag, re.I)
+        if not href or is_external(href.group(1)):
+            continue
+        local = SITE / href.group(1).lstrip("/")
+        if local.is_file():
+            css += "\n" + local.read_text(encoding="utf-8")
+    return css
+
+
 def check_html() -> None:
     pages = sorted(SITE.glob("*.html"))
     if not pages:
@@ -108,6 +141,13 @@ def check_html() -> None:
 
         for needle, label in REQUIRED_META:
             if needle in src:
+                ok(f"{page.name}: {label}")
+            else:
+                fail(f"{page.name}: missing {label}")
+
+        css = css_for(src)
+        for needle, label in REQUIRED_CSS:
+            if needle in css:
                 ok(f"{page.name}: {label}")
             else:
                 fail(f"{page.name}: missing {label}")
@@ -149,29 +189,56 @@ FETCHING_REL = {"stylesheet", "preload", "prefetch", "icon", "shortcut icon",
                 "apple-touch-icon", "manifest", "modulepreload"}
 
 
+def is_external(url: str) -> bool:
+    """True for anything that leaves this origin. Protocol-relative URLs count:
+    //cdn.example.com resolves to https://cdn.example.com in production and is
+    blocked by default-src 'self' exactly like an absolute one."""
+    u = url.strip()
+    return u.startswith(("http://", "https://", "//"))
+
+
 def check_no_external_refs() -> None:
     """The CSP is default-src 'self'. A genuine external subresource would be
     blocked at runtime, so catch it here instead of in production.
 
     Only real fetches count. Anchor hrefs are navigation and <link rel=canonical>
     is metadata — neither is governed by CSP, and flagging them would train the
-    reader to ignore this check."""
+    reader to ignore this check.
+
+    Attribute quoting, URL scheme and rel spelling are all things a contributor
+    varies without thinking about it, so match on all the forms a browser
+    honours rather than the one this site happens to use today."""
     for page in sorted(SITE.glob("*.html")):
         src = page.read_text(encoding="utf-8")
         bad: list[str] = []
 
         # src= always denotes a fetched subresource (script, img, iframe, ...).
-        bad += re.findall(r'\bsrc="(https?://[^"]+)"', src)
+        # Either quote style, and srcset carries a comma-separated candidate list.
+        for attr in ("src", "srcset"):
+            for value in re.findall(rf'\b{attr}\s*=\s*["\']([^"\']+)["\']', src, re.I):
+                for candidate in value.split(","):
+                    url = candidate.strip().split()[0] if candidate.strip() else ""
+                    if url and is_external(url):
+                        bad.append(url)
 
-        # href= only fetches on <link> tags carrying a fetching rel.
+        # href= only fetches on <link> tags carrying a fetching rel. rel accepts
+        # a space-separated token list, so compare tokens rather than the whole
+        # attribute value.
         for tag in re.findall(r"<link\b[^>]*>", src, re.I):
-            href = re.search(r'href="(https?://[^"]+)"', tag)
-            if not href:
+            href = re.search(r'href\s*=\s*["\']([^"\']+)["\']', tag, re.I)
+            if not href or not is_external(href.group(1)):
                 continue
-            rel = re.search(r'rel="([^"]*)"', tag, re.I)
-            rel_val = rel.group(1).strip().lower() if rel else ""
-            if rel_val in FETCHING_REL:
+            rel = re.search(r'rel\s*=\s*["\']([^"\']*)["\']', tag, re.I)
+            tokens = set(rel.group(1).lower().split()) if rel else set()
+            if tokens & FETCHING_REL:
                 bad.append(href.group(1))
+
+        # @import fetches a stylesheet from inside CSS and is governed by
+        # style-src, but never appears as a src= or <link> so the checks above
+        # cannot see it.
+        for value in re.findall(r"@import\s+(?:url\()?\s*['\"]?([^'\")\s;]+)", css_for(src), re.I):
+            if is_external(value):
+                bad.append(value)
 
         if bad:
             fail(f"{page.name}: external subresource would be blocked by CSP — {bad}")
