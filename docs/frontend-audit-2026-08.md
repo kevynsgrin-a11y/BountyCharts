@@ -52,8 +52,14 @@ tool calls rejected, 2 succeeded** (both zero-parameter calls). No subagent exec
 parameterised tool, so none of them measured anything.
 
 The failure is deterministic rather than flaky, so it was not retried. Every finding below was
-therefore measured directly, in the main session, where tools work normally. Nothing in this
-document came from an agent.
+therefore measured directly, in the main session, where tools work normally. Nothing in the
+original 20 findings came from an agent.
+
+> **Scope note, 2026-08-28.** That statement covers the original 20 findings only. Two later
+> additions do involve agent work, and say so where they appear: the **H1** draft correction was
+> caught by an adversarial verifier during the content-and-image specification pass (and
+> re-measured here before being accepted), and **C3** was found by me from this PR's own deploy
+> records. A separate 12-agent run for that specification completed 12/12.
 
 ### Evidence grades
 
@@ -79,10 +85,18 @@ informative as what did.
 This is a better-built page than most audits get to open with, and the specifics matter because a
 redesign could easily destroy them without noticing.
 
-- **It is 10.2 KB in one request.** Measured: 1 HTTP request, 10,447 bytes, 75 DOM nodes, load
-  event at 50 ms. No framework, no build step, no external asset, no font download, no tracker,
-  no cookie banner. A redesign that adds a CSS framework and a web font will be 20× the weight
-  before it renders a single new idea.
+- **It is 3.2 KB on the wire, in one request.** Measured: 1 HTTP request; `index.html` is 11,657 B
+  raw and **3,179 B brotli q11 (27.3%)**, which is the production wire cost; 76 DOM elements;
+  `loadEventEnd` median 21.9 ms. No framework, no build step, no external asset, no font download,
+  no tracker, no cookie banner. A redesign that adds a CSS framework and a web font will be many
+  times the weight before it renders a single new idea.
+
+  > **Corrected 2026-08-28.** This bullet originally read "10.2 KB in one request … load event at
+  > 50 ms". That figure was the *uncompressed* transfer from the local test server, which sends
+  > `identity`, and a single cold-start load sample. Re-measured with brotli and n≥9, the site is
+  > **better** than this document first reported. Binary images do not compress this way — measured
+  > brotli on a PNG returns 92.6% of original — which is why §8 of the content-and-image spec
+  > budgets images against 3,179 B rather than 10,447 B.
 - **It works with JavaScript disabled**, because it ships none. Verified in a JS-disabled browser
   context: the hero, the ticker and the link all render identically. There is no loading state to
   design because there is no load.
