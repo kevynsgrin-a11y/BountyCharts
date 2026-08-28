@@ -331,17 +331,32 @@ user might act on are not changed autonomously. Drafts only.
 Luminance-scaled so hue is preserved. Both light backgrounds (`#FAFAF8` page, `#FFFFFF` cards)
 satisfied.
 
-| Token | Current | Ratio | Draft | Ratio |
-|---|---|---:|---|---:|
-| `--gold` (light) | `#9A6F1E` | 4.31:1 | `#966C1D` | **4.51:1** |
-| `--gold-bright` (light, hover) | `#C9973F` | 2.52:1 | `#926D2E` | **4.52:1** |
-| `--ink-faint` (light) | `#8A93A1` | 2.97:1 | `#6D747F` | **4.51:1** |
-| `--ink-faint` (dark) | `#6B7482` | 3.69:1 | `#798393` | **4.55:1** |
+> **Corrected 2026-08-28.** The `--gold-bright` value first drafted here (`#926D2E`) was defective
+> and must not be used. It clears AA against the background, but measures **1.0024:1 against the
+> corrected `--gold` `#966C1D`** — visually identical, so the hover state would disappear entirely,
+> which is worse than today's already-weak 1.7105:1. Caught by an adversarial verifier during the
+> content-and-image specification pass and re-measured before accepting. The table below carries
+> the corrected value.
 
-Note that `--gold` at `#966C1D` only just clears the threshold. If the brand can tolerate a
-slightly deeper gold, more headroom is worth taking. Also worth deciding separately: the `sample`
-badge is 9.28 px at 0.75 opacity — even at a compliant colour it is the least legible text on the
-page, and it is the disclosure that marks four financial figures as fictional.
+| Token | Current | Ratio | Draft | Ratio | vs `--gold` |
+|---|---|---:|---|---:|---:|
+| `--gold` (light) | `#9A6F1E` | 4.31:1 | `#966C1D` | **4.51:1** | — |
+| `--gold-bright` (light, hover) | `#C9973F` | 2.52:1 | **`#7A5716`** | **6.27:1** | **1.39:1** |
+| ~~superseded draft~~ | | | ~~`#926D2E`~~ | ~~4.52:1~~ | ~~**1.00:1** — invisible~~ |
+| `--ink-faint` (light) | `#8A93A1` | 2.97:1 | `#6D747F` | **4.51:1** | — |
+| `--ink-faint` (dark) | `#6B7482` | 3.69:1 | `#798393` | **4.55:1** | — |
+
+Hover now *darkens* rather than lightens, which is a legitimate affordance direction and gives more
+headroom than the original. Pair it with `a:hover { text-decoration-thickness: 2px; }` so the
+affordance does not depend on colour at all.
+
+Note that `--gold` at `#966C1D` clears the threshold by only 0.01. **Do not apply `opacity` to any
+of these three light-theme tokens** — all three re-break at once — and re-run the computation on any
+future change to `--bg`. If the brand can tolerate a deeper gold, more headroom is worth taking.
+
+Also worth deciding separately: the `sample` badge is 9.28 px at 0.75 opacity — even at a compliant
+colour it is the least legible text on the page, and it is the disclosure that marks four financial
+figures as fictional.
 
 ### M1 — the copyright year
 
