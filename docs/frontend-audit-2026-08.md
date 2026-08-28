@@ -63,6 +63,9 @@ document came from an agent.
 | OBSERVED | 3 | Read directly in source, cited to the line. |
 | INFERRED | 1 | Reasoned from code not executed. States what would confirm it. |
 
+*(Counts cover the original 20 findings. **C3**, added 2026-08-28, is MEASURED — its
+deploy-ordering timeline was observed directly.)*
+
 No finding at high severity or above rests on inference alone. **11 candidate findings were
 discarded** during re-verification — listed at the end, because what failed to survive is as
 informative as what did.
@@ -210,7 +213,7 @@ adopting `light-dark()`. Those are genuine contract questions for a human — se
 
 ### C3 — The deploy gate does not gate the deploy that actually reaches production
 
-**MEASURED / INFERRED.** `.github/workflows/deploy.yml:30-67`, `docs/deployment/cloudflare.md:20-95`
+**MEASURED.** `.github/workflows/deploy.yml:30-67`, `docs/deployment/cloudflare.md:20-95`
 
 Discovered on 2026-08-28, when a Cloudflare Pages deployment appeared on PR #3.
 
@@ -231,9 +234,25 @@ build-and-deploy process for pull requests". Nothing in that pipeline consults G
 standing between a broken page and production — does not stand between them at all on this path.
 A commit that fails the gate still gets built and served by Pages.
 
-This is graded INFERRED rather than MEASURED for the consequence specifically: proving it would
-require pushing a deliberately gate-failing commit and watching Pages publish it, which would
-deploy a broken page. That is not worth doing to confirm what the documentation already says.
+**The ordering is measured, not assumed.** Timeline for head `a0a2f8d`, from this session's own
+event stream and the PR's check-run records:
+
+| Time (UTC) | Event |
+|---|---|
+| 13:08:23 | Cloudflare: **"Build in progress"** — the Pages build starts |
+| 13:08:27 | GitHub Actions **`validate` job starts** |
+| 13:08:32 | `Cloudflare Pages` check run posted, `success` |
+| 13:08:33 | **`validate` job completes** — the gate finishes |
+| 13:08:34 | Cloudflare: **"Deploy successful!"** |
+| 13:08:36 | Actions `deploy` job starts; its Cloudflare step is `skipped` |
+
+**Pages began building 4 seconds before the gate job even started, and reported success 1 second
+before the gate finished.** A deploy that does not wait for a result cannot be conditioned on it.
+
+What remains strictly untested is a deploy of a commit that actually fails the gate — proving that
+directly would mean pushing a deliberately broken commit and watching Pages publish it to a live
+site, which is not worth doing to confirm what the ordering and the documentation both already
+establish.
 
 **What decides how bad this is:** whether `main` has branch protection requiring the `validate`
 check. With it, a human cannot merge a red PR and the gate remains effective at the merge boundary.
