@@ -33,9 +33,13 @@ Capabilities established before anything was measured:
   Chromium-verified and explicitly not confirmed in Safari or Firefox.
 
 Deploy history was checked instead: three workflow runs exist, the most recent green on `main`.
-Cloudflare credentials are not configured, so the deploy job takes its skip path. **There may be
-no live site at all yet** — which makes the local measurements the authoritative ones rather than
-a fallback.
+Cloudflare credentials are not configured, so the deploy job takes its skip path.
+
+> **Superseded 2026-08-28.** A Cloudflare Pages deployment now exists — see **C3** below. The
+> statement originally here, that there may be no live site at all, is no longer true. The live URL
+> is still unreachable from this session (egress-blocked, 403 CONNECT on both `curl` and the fetch
+> tool, retested against the new preview URLs), so the local measurements remain the authoritative
+> ones — but now because of a network restriction, not because nothing is deployed.
 
 ### A note on method
 
@@ -115,11 +119,11 @@ is left to find it.
 
 | Severity | Count | Fixed here | Flagged for review | Reported only |
 |---|---:|---:|---:|---:|
-| Critical | 1 | 1 | 0 | 0 |
+| Critical | 2 | 1 | 0 | 1 |
 | High | 5 | 2 | 0 | 3 |
 | Medium | 9 | 3 | 2 | 4 |
 | Low | 5 | 1 | 0 | 4 |
-| **Total** | **20** | **7** | **2** | **11** |
+| **Total** | **21** | **7** | **2** | **12** |
 
 ---
 
@@ -201,6 +205,52 @@ Two cases still block, now honestly and on both pages: switching to a `.theme-da
 adopting `light-dark()`. Those are genuine contract questions for a human — see **H4**.
 
 **Effort:** shipped, ~2 hours including the test suite.
+
+---
+
+### C3 — The deploy gate does not gate the deploy that actually reaches production
+
+**MEASURED / INFERRED.** `.github/workflows/deploy.yml:30-67`, `docs/deployment/cloudflare.md:20-95`
+
+Discovered on 2026-08-28, when a Cloudflare Pages deployment appeared on PR #3.
+
+**What is measured.** On workflow run `33169303324` (head `243b156`), the `deploy` job completed
+`success` with its `Deploy to Cloudflare Pages` step **`skipped`** — the credential check found no
+`CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` and took the documented skip path. At the same time,
+`cloudflare-workers-and-pages[bot]` posted successful deployments for both `8ef93ee` and `4e102aa`,
+serving `https://<hash>.bountycharts.pages.dev` and a branch preview.
+
+So the site is being deployed by **Cloudflare Pages' own Git integration**, not by the workflow this
+repository documents, tests and gates. There are two deploy paths, and the one with the gate in
+front of it is the one that is not running.
+
+**What follows.** Cloudflare's documentation states that Pages "will automatically rebuild your
+project and deploy it on every new pushed commit", and that preview deployments "repeat the
+build-and-deploy process for pull requests". Nothing in that pipeline consults GitHub Actions. So
+`scripts/validate_site.py` — the subject of finding **C1**, described there as the only thing
+standing between a broken page and production — does not stand between them at all on this path.
+A commit that fails the gate still gets built and served by Pages.
+
+This is graded INFERRED rather than MEASURED for the consequence specifically: proving it would
+require pushing a deliberately gate-failing commit and watching Pages publish it, which would
+deploy a broken page. That is not worth doing to confirm what the documentation already says.
+
+**What decides how bad this is:** whether `main` has branch protection requiring the `validate`
+check. With it, a human cannot merge a red PR and the gate remains effective at the merge boundary.
+Without it, the gate is advisory. That setting was not visible from this session and should be
+checked first.
+
+**Consequence.** The runbook and the workflow describe a deployment path that is not the live one,
+so every verification step in `docs/deployment/cloudflare.md` steps 3-4 now describes something that
+did not happen. If the secrets are later added as documented, **both** paths will deploy the same
+project, racing on every push.
+
+**Fix.** Decide which path is authoritative and delete the other. If Pages Git integration stays:
+require the `validate` check in branch protection, delete the `deploy` job, and rewrite the runbook.
+If the workflow path is preferred: disconnect the Git integration in the Pages project and add the
+two secrets. Not fixed here — it is a deployment-topology decision requiring account access.
+
+**Effort.** 30 minutes either way, once the decision is made.
 
 ---
 
