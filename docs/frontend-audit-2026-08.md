@@ -234,20 +234,23 @@ build-and-deploy process for pull requests". Nothing in that pipeline consults G
 standing between a broken page and production — does not stand between them at all on this path.
 A commit that fails the gate still gets built and served by Pages.
 
-**The ordering is measured, not assumed.** Timeline for head `a0a2f8d`, from this session's own
-event stream and the PR's check-run records:
+**The ordering is measured, not assumed.** Two consecutive pushes, from this session's event stream
+and the PR's check-run records:
 
-| Time (UTC) | Event |
-|---|---|
-| 13:08:23 | Cloudflare: **"Build in progress"** — the Pages build starts |
-| 13:08:27 | GitHub Actions **`validate` job starts** |
-| 13:08:32 | `Cloudflare Pages` check run posted, `success` |
-| 13:08:33 | **`validate` job completes** — the gate finishes |
-| 13:08:34 | Cloudflare: **"Deploy successful!"** |
-| 13:08:36 | Actions `deploy` job starts; its Cloudflare step is `skipped` |
+| head | Pages build starts | `validate` starts | `validate` completes | Pages reports success |
+|---|---|---|---|---|
+| `a0a2f8d` | 13:08:23 | 13:08:27 | 13:08:33 | 13:08:34 |
+| `ff28515` | 13:10:24 | 13:10:26 | 13:10:31 | 13:10:39 |
 
-**Pages began building 4 seconds before the gate job even started, and reported success 1 second
-before the gate finished.** A deploy that does not wait for a result cannot be conditioned on it.
+**Replicated on both: the Pages build begins before the `validate` job starts** — by 4 s and 2 s
+respectively. A deploy that has already started before the gate has begun cannot be conditioned on
+the gate's result.
+
+Note what did *not* replicate. On `a0a2f8d` Pages also reported success one second *before*
+`validate` finished; on `ff28515` it reported eight seconds *after*. That variation is not noise to
+be explained away — it is the finding. The two pipelines are unsynchronised, so their completion
+order is a race that lands differently on each push. A gate whose result arrives before the deploy
+on one push and after it on the next is not gating anything on either.
 
 What remains strictly untested is a deploy of a commit that actually fails the gate — proving that
 directly would mean pushing a deliberately broken commit and watching Pages publish it to a live
