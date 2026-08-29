@@ -18,10 +18,31 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "WebSite",
-  "name": "BountyCharts",
-  "url": "https://bountycharts.com/",
-  "description": "Price and metagame intelligence for trading card games."
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://bountycharts.com/#website",
+      "name": "BountyCharts",
+      "url": "https://bountycharts.com/",
+      "description": "Price and metagame intelligence for trading card games.",
+      "inLanguage": "en",
+      "publisher": { "@id": "https://bountycharts.com/#publisher" }
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://bountycharts.com/#publisher",
+      "name": "Oak and Main Developers LLC",
+      "url": "https://bountycharts.com/",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "2108 N St.",
+        "addressLocality": "Sacramento",
+        "addressRegion": "CA",
+        "postalCode": "95816",
+        "addressCountry": "US"
+      }
+    }
+  ]
 }
 </script>
 <style>
