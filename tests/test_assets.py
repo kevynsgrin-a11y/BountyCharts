@@ -53,20 +53,34 @@ def fingerprinted(name: str, data: bytes) -> str:
 class AssetFingerprints(unittest.TestCase):
 
     def test_gate_passes_with_no_assets_directory(self):
-        """Today's state must remain landable."""
+        """A site with no assets at all must stay landable -- the check is a
+        rule about assets that exist, not a requirement that any do."""
+        def mutate(site):
+            shutil.rmtree(site / "assets", ignore_errors=True)
+            for page in site.rglob("*.html"):
+                src = page.read_text(encoding="utf-8")
+                # drop the references too, or the dangling-reference check fires
+                page.write_text(
+                    "\n".join(l for l in src.splitlines()
+                               if "/assets/" not in l) + "\n", encoding="utf-8")
+        code, out = run_gate(mutate)
+        self.assertEqual(code, 0, out)
+
+    def test_the_real_site_assets_are_all_fingerprinted(self):
+        """Regression guard on what actually ships."""
         code, out = run_gate()
         self.assertEqual(code, 0, out)
 
     def test_correctly_fingerprinted_asset_is_accepted(self):
         def mutate(site):
-            (site / "assets").mkdir()
+            (site / "assets").mkdir(exist_ok=True)
             (site / "assets" / fingerprinted("og-card.png", PNG)).write_bytes(PNG)
         code, out = run_gate(mutate)
         self.assertEqual(code, 0, "a correctly fingerprinted asset was rejected:\n" + out)
 
     def test_unfingerprinted_asset_is_rejected(self):
         def mutate(site):
-            (site / "assets").mkdir()
+            (site / "assets").mkdir(exist_ok=True)
             (site / "assets" / "og-card.png").write_bytes(PNG)
         code, out = run_gate(mutate)
         self.assertEqual(code, 1)
@@ -76,7 +90,7 @@ class AssetFingerprints(unittest.TestCase):
         """The real bug: same filename, different bytes. A name-pattern check
         alone cannot see this, and the result is served stale for a year."""
         def mutate(site):
-            (site / "assets").mkdir()
+            (site / "assets").mkdir(exist_ok=True)
             name = fingerprinted("og-card.png", PNG)
             (site / "assets" / name).write_bytes(PNG + b" EDITED")
         code, out = run_gate(mutate)
@@ -119,7 +133,7 @@ class ProducerRenamesAndRewrites(unittest.TestCase):
             shutil.copytree(SITE, work / "site")
             (work / "scripts").mkdir()
             shutil.copy(PRODUCER, work / "scripts" / "fingerprint_assets.py")
-            (work / "site" / "assets").mkdir()
+            (work / "site" / "assets").mkdir(exist_ok=True)
             (work / "site" / "assets" / "og-card.png").write_bytes(PNG)
             src = (work / "site" / "index.html").read_text(encoding="utf-8")
             (work / "site" / "index.html").write_text(
