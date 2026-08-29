@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BountyCharts — Owner Action List</title>
+<style>
+  @page { size: Letter; margin: 14mm 13mm 16mm; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font: 10pt/1.45 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #14181E; background: #fff;
+  }
+  h1 { font-size: 20pt; margin: 0 0 2mm; letter-spacing: -0.02em; }
+  .sub { color: #59616E; font-size: 9pt; margin: 0 0 5mm; }
+  h2 {
+    font-size: 11.5pt; margin: 7mm 0 2.5mm; padding-bottom: 1.2mm;
+    border-bottom: 1.5pt solid #966C1D; color: #6B4E15; break-after: avoid;
+  }
+  h3 { font-size: 10pt; margin: 4mm 0 1.5mm; break-after: avoid; }
+  p, li { margin: 0 0 1.8mm; }
+  ul, ol { margin: 0 0 2mm; padding-left: 5mm; }
+  .item { break-inside: avoid; margin: 0 0 4mm; padding-left: 7mm; position: relative; }
+  .item::before {
+    content: ""; position: absolute; left: 0; top: 0.7mm;
+    width: 3.6mm; height: 3.6mm; border: 1pt solid #59616E; border-radius: 0.6mm;
+  }
+  .item h3 { margin-top: 0; }
+  .tag {
+    display: inline-block; font-size: 7pt; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 0.5mm 1.6mm; border-radius: 1mm;
+    vertical-align: 1.2px; margin-left: 1.5mm;
+  }
+  .t-block { background: #FBE3E0; color: #8C2F24; }
+  .t-dec   { background: #FDF0D9; color: #6B4E15; }
+  .t-ver   { background: #E1EFE9; color: #10553F; }
+  .why { color: #59616E; font-size: 9pt; }
+  code, pre {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 8.5pt;
+  }
+  pre {
+    background: #F4F4F2; border-left: 2pt solid #C9CCC8; padding: 2mm 2.5mm;
+    margin: 1.5mm 0; white-space: pre-wrap; word-break: break-word; break-inside: avoid;
+  }
+  .draft {
+    border: 1pt solid #E2E4E4; border-left: 2.5pt solid #966C1D;
+    padding: 2mm 2.5mm; margin: 1.5mm 0; background: #FCFCFB; break-inside: avoid;
+  }
+  .draft .lbl {
+    font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.08em;
+    color: #6B4E15; font-weight: 700; display: block; margin-bottom: 1mm;
+  }
+  table { border-collapse: collapse; width: 100%; font-size: 8.5pt; margin: 2mm 0; break-inside: avoid; }
+  th, td { border: 0.5pt solid #D8DAD6; padding: 1.2mm 2mm; text-align: left; vertical-align: top; }
+  th { background: #F4F4F2; font-weight: 700; }
+  .done { color: #10553F; font-weight: 700; }
+  .lead {
+    background: #F7F7F5; border: 0.5pt solid #E2E4E4; padding: 3mm; margin: 0 0 5mm;
+    break-inside: avoid;
+  }
+  .lead p:last-child { margin-bottom: 0; }
+  footer {
+    margin-top: 7mm; padding-top: 2.5mm; border-top: 0.5pt solid #E2E4E4;
+    font-size: 8pt; color: #59616E;
+  }
+  .newpage { break-before: page; }
+</style>
+</head>
+<body>
+
+<h1>BountyCharts — Owner Action List</h1>
+<p class="sub">
+  Everything from the front-end audit that could <strong>not</strong> be completed autonomously.
+  Generated 2026-08-29 · Oak and Main Developers LLC · repo <code>kevynsgrin-a11y/BountyCharts</code>
+</p>
+
+<div class="lead">
+  <p><strong>What was already shipped, so you can skip it:</strong> every WCAG AA contrast failure on
+  both pages and both themes; the ticker disclosure (now visible <em>and</em> the accessible name);
+  the social card and icon set; the publisher identity in structured data and the footer; links to
+  the research; the dead <code>data-theme</code> CSS; five gate holes including total blindness to
+  subdirectories; asset fingerprinting with enforcement. <strong>40 tests, gate green.</strong></p>
+  <p>Everything below needs either an account you hold, a fact only you know, or a device this
+  environment does not have. Items are ordered so the blocking ones come first.</p>
+</div>
+
+<table>
+  <tr><th>Tag</th><th>Meaning</th></tr>
+  <tr><td><span class="tag t-block">Blocking</span></td><td>Something is wrong or unsafe until this is done.</td></tr>
+  <tr><td><span class="tag t-dec">Decision</span></td><td>Needs a fact or judgement only you have. Draft attached where one exists.</td></tr>
+  <tr><td><span class="tag t-ver">Verify</span></td><td>Already believed correct; needs confirming on a device or browser I cannot reach.</td></tr>
+</table>
+
+<h2>1 · Deployment topology — do these two first</h2>
+
+<div class="item">
+  <h3>Check branch protection on <code>main</code><span class="tag t-block">Blocking</span></h3>
+  <p class="why">This single setting decides whether audit finding <strong>C3</strong> is critical or
+  merely untidy. With it, a red <code>validate</code> check stops a merge and the gate still holds at
+  the merge boundary. Without it, the gate is advisory only.</p>
+  <p>Repo → Settings → Branches → add a rule for <code>main</code> → tick
+  <em>Require status checks to pass before merging</em> → select <strong>validate</strong>.</p>
+</div>
+
+<div class="item">
+  <h3>Decide which deploy path is authoritative<span class="tag t-block">Blocking</span></h3>
+  <p class="why"><strong>Measured:</strong> the GitHub Actions <code>deploy</code> job runs with its
+  Cloudflare step <code>skipped</code> (no secrets), while Cloudflare Pages' own Git integration
+  deploys the site independently. Across three consecutive pushes the Pages build began
+  <strong>4 s, 2 s and 4 s before the <code>validate</code> job even started</strong> — so the deploy
+  is not conditioned on the gate at all. Two paths exist; the one with the gate in front of it is the
+  one not running.</p>
+  <p><strong>Option A — keep Pages Git integration (recommended, it is what already works):</strong></p>
+  <ul>
+    <li>Do the branch-protection step above; that becomes the real gate.</li>
+    <li>Delete the <code>deploy</code> job from <code>.github/workflows/deploy.yml</code>.</li>
+    <li>Rewrite <code>docs/deployment/cloudflare.md</code> steps 3–4, which currently describe a
+        secrets-based path that is not the live one.</li>
+  </ul>
+  <p><strong>Option B — use the workflow instead:</strong> disconnect Git integration in the Pages
+  project, then add both repo secrets:</p>
+  <pre>Repo → Settings → Secrets and variables → Actions → New repository secret
+  CLOUDFLARE_API_TOKEN     (Account → Cloudflare Pages → Edit)
+  CLOUDFLARE_ACCOUNT_ID    820e7cee61fccc60d14c8e20bc686942</pre>
+  <p class="why"><strong>Do not do both.</strong> With Git integration active and the secrets added,
+  both paths deploy the same project on every push and race each other.</p>
+</div>
+
+<h2>2 · Domain and live verification</h2>
+
+<div class="item">
+  <h3>Attach the custom domain and canonicalise www<span class="tag t-dec">Decision</span></h3>
+  <p class="why">The site currently serves only on <code>*.pages.dev</code>. Every canonical URL,
+  the <code>og:image</code> URL and the sitemap already point at
+  <code>https://bountycharts.com/</code>, so those are promises the DNS does not yet keep.</p>
+  <p>Pages project → Custom domains → add <code>bountycharts.com</code> and
+  <code>www.bountycharts.com</code>. Then zone → Rules → Redirect Rules:</p>
+  <pre>When:       Hostname equals www.bountycharts.com
+Then:       Dynamic redirect, 301, preserve query string
+Expression: concat("https://bountycharts.com", http.request.uri.path)</pre>
+</div>
+
+<div class="item">
+  <h3>Run five checks I could not — the live URL is egress-blocked here<span class="tag t-ver">Verify</span></h3>
+  <p class="why">Audit finding <strong>L5</strong> is the only one still graded INFERRED, purely
+  because of this. Paste and eyeball:</p>
+  <pre>curl -sSI https://bountycharts.com/            | head -1     # expect HTTP/2 200
+curl -sSI https://bountycharts.com/            | grep -i cache-control
+curl -sSI https://bountycharts.com/nope        | head -1     # expect HTTP/2 404
+curl -sSI https://www.bountycharts.com/        | head -3     # expect 301 to apex
+curl -sSI https://bountycharts.com/            | grep -i set-cookie   # expect nothing</pre>
+  <p class="why"><strong>The one to look at closely is line 2.</strong> <code>_headers</code> sets
+  <code>Cache-Control: max-age=0, must-revalidate</code> on <code>/*.html</code>, but the landing
+  page is served at <code>/</code>, which may not match that pattern — leaving the most
+  cache-sensitive page on Cloudflare's default policy. If no <code>must-revalidate</code> comes back,
+  add an explicit rule for <code>/</code> in <code>site/_headers</code>.</p>
+  <p class="why">Line 5 settles the last open question: whether the edge sets cookies. If anything
+  comes back, a privacy claim of "no cookies" cannot be made.</p>
+</div>
+
+<div class="item">
+  <h3>Cross-browser and unfurl spot-checks<span class="tag t-ver">Verify</span></h3>
+  <p class="why">Everything measured in this audit was Chromium-only. Three things are worth a
+  30-second look each in Safari and Firefox:</p>
+  <ul>
+    <li><strong>CSP.</strong> <code>script-src</code> no longer allows <code>'unsafe-inline'</code>.
+        Zero violations in Chromium; confirm the console is clean elsewhere.</li>
+    <li><strong>Favicon.</strong> It is an inline SVG data URI. Confirm the tab icon shows a gold
+        diamond, not a blank page.</li>
+    <li><strong>Print.</strong> With your OS in <em>dark</em> mode, print-preview the page. It must
+        come out white with black text and the GitHub URL printed after the link.</li>
+  </ul>
+  <p>Then paste the live URL into Slack, iMessage and X and confirm the social card renders wide,
+  not as a small square.</p>
+</div>
+
+<h2 class="newpage">3 · Facts and decisions only you can supply</h2>
+
+<div class="item">
+  <h3>A contact address — or confirm there is none<span class="tag t-dec">Decision</span></h3>
+  <p class="why">The site has <strong>no way to contact anyone and no way to hear about launch</strong>.
+  That is the largest remaining content gap. It was not fixed autonomously because
+  <code>hello@bountycharts.com</code> does not exist, and publishing a dead address is worse than
+  publishing none. A third-party signup form is also ruled out by the CSP
+  (<code>form-action 'self'</code>) and by the no-JavaScript rule the test suite enforces.</p>
+  <p>Cheapest working route: Cloudflare Email Routing on the zone you already own (free, gives a
+  rotatable alias). Once the address resolves, this block is ready to paste after the Status
+  section:</p>
+  <div class="draft">
+    <span class="lbl">Draft — needs a working MX before it ships</span>
+    <pre>&lt;section&gt;
+  &lt;h2&gt;Hearing about launch&lt;/h2&gt;
+  &lt;p class="tight"&gt;There is deliberately no signup form here. This site runs no
+  scripts and calls no third party, and a form would end both. Two ways to hear
+  when it ships:&lt;/p&gt;
+  &lt;p class="tight"&gt;&lt;a href="mailto:hello@bountycharts.com?subject=Notify%20me%20at%20launch"&gt;Email
+  hello@bountycharts.com&lt;/a&gt; — anything in the body. Your address is used to tell
+  you about launch and nothing else: not sold, not shared, not added to any other
+  list.&lt;/p&gt;
+  &lt;p class="tight"&gt;&lt;a href="https://github.com/kevynsgrin-a11y/BountyCharts"&gt;Watch the
+  repository&lt;/a&gt; and choose Custom → Releases. Nothing reaches us that way at all.&lt;/p&gt;
+&lt;/section&gt;</pre>
+  </div>
+  <p class="why">The privacy sentence is a commitment, so read it before shipping. As written it
+  permits exactly one launch email and nothing further — if you later mail that group again, that is
+  a list, and the sentence stops being true. Do not substitute a personal address: git authorship is
+  not consent to publish a mailbox on a commercial page.</p>
+</div>
+
+<div class="item">
+  <h3>Answer four questions, then the disclosures page can be written<span class="tag t-dec">Decision</span></h3>
+  <p class="why">A <code>/disclosures</code> page was specified and deliberately not built. Naming
+  the company is not enough — the page has to make claims about conduct, and inventing those on a
+  site whose entire pitch is verifiability would be worse than having no page. Your answers:</p>
+  <ol>
+    <li><strong>Positions.</strong> Do you or the LLC hold, trade, or speculate in any card or sealed
+        product the site will cover? (A clean "no positions" statement is the single most valuable
+        line on such a page — but only if true.)</li>
+    <li><strong>Affiliates.</strong> Any existing relationship with TCGplayer or another retailer,
+        signed or pending?</li>
+    <li><strong>Analytics.</strong> Will anything be measured at launch? Cloudflare Web Analytics is
+        cookieless and needs no consent banner; anything else changes the privacy copy.</li>
+    <li><strong>Cookies.</strong> Settled by the <code>curl</code> in §2 above.</li>
+  </ol>
+  <p class="why"><strong>Timing matters on #2.</strong> <code>docs/deployment/cloudflare.md</code>
+  records that an affiliate disclosure is legally required <em>before</em> the first affiliate link
+  ships, not after. If a link is imminent, this page becomes blocking.</p>
+</div>
+
+<div class="item">
+  <h3>Confirm the darker brand gold<span class="tag t-ver">Verify</span></h3>
+  <p class="why">Shipped, because it was an accessibility defect rather than a taste question — but
+  it is your brand, it is visible, and it is one commit to revert.</p>
+  <table>
+    <tr><th>Token</th><th>Was</th><th>Now</th><th>Contrast</th><th>Used for</th></tr>
+    <tr><td><code>--gold</code></td><td><code>#9A6F1E</code></td><td><code>#966C1D</code></td><td>4.31 → 4.51</td><td>links, headings, wordmark</td></tr>
+    <tr><td><code>--gold-bright</code></td><td><code>#C9973F</code></td><td><code>#7A5716</code></td><td>2.52 → 6.27</td><td>link hover</td></tr>
+    <tr><td><code>--ink-faint</code></td><td><code>#8A93A1</code></td><td><code>#6D747F</code></td><td>2.97 → 4.51</td><td>labels, numerals</td></tr>
+    <tr><td><code>--ink-faint</code> dark</td><td><code>#6B7482</code></td><td><code>#838C9A</code></td><td>3.69 → 5.14</td><td>same, dark theme</td></tr>
+  </table>
+  <p class="why">All are hue-preserving darkenings, not new hues. Hover now darkens rather than
+  lightens, which is why <code>--gold-bright</code> moved so far. <strong>Two standing rules:</strong>
+  never apply <code>opacity</code> to these three light-theme tokens — they clear the 4.5 threshold by
+  about 0.01 and all three re-break at once — and recompute if <code>--bg</code> ever changes.</p>
+</div>
+
+<h2>4 · Deferred by choice — reopen when the trigger fires</h2>
+
+<div class="item">
+  <h3>Replace the sample ticker figures with real Riftbound data<span class="tag t-dec">Decision</span></h3>
+  <p class="why">The four figures are invented and now say so plainly, above the strip, in text that
+  is also the accessible name. That is honest, but it is still a mock-up on a page whose thesis is
+  that the data is the product. <strong>Trigger:</strong> the first real dataset.</p>
+</div>
+
+<div class="item">
+  <h3>A <code>/method</code> page<span class="tag t-dec">Decision</span></h3>
+  <p class="why">The page promises "what the data says, <em>and where it came from</em>" and provides
+  provenance for nothing. Specified in full in
+  <code>docs/content-and-image-spec-2026-08.md</code> §5, not built — it would have to describe
+  sourcing for a pipeline that does not exist yet. <strong>Trigger:</strong> the first real dataset,
+  same as above.</p>
+</div>
+
+<div class="item">
+  <h3>Screen-reader pass on the new ticker caption<span class="tag t-ver">Verify</span></h3>
+  <p class="why">The caption is now both visible text and the accessible name via
+  <code>aria-labelledby</code>, verified against Chromium's accessibility tree (33 words, naming all
+  four cells and stating the figures are invented). No screen reader exists in this environment, so
+  the announcement itself is spec-derived. A two-minute VoiceOver pass would close it.</p>
+</div>
+
+<footer>
+  Full detail: <code>docs/frontend-audit-2026-08.md</code> (21 findings) ·
+  <code>docs/content-and-image-spec-2026-08.md</code> (55 items) ·
+  <code>docs/scorecard-2026-08.md</code> (graded F, 59.0/100 on a Fortune 500 curve).
+  Every number in this document was measured, not estimated.
+</footer>
+
+</body>
+</html>

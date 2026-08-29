@@ -8,6 +8,7 @@ on:
       - 'scripts/validate_site.py'
       - 'tests/**'
       - 'models/**'
+      - 'docs/**'
       - '.github/workflows/deploy.yml'
   pull_request:
     paths:
@@ -15,6 +16,7 @@ on:
       - 'scripts/validate_site.py'
       - 'tests/**'
       - 'models/**'
+      - 'docs/**'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 

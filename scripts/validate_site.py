@@ -10,6 +10,7 @@ Exits non-zero on any failure so a broken page cannot reach production.
 
 from __future__ import annotations
 
+import hashlib
 import html.parser
 import json
 import pathlib
@@ -42,8 +43,17 @@ REQUIRED_META = [
 # CSS into a stylesheet without the gate reporting it as deleted dark mode.
 REQUIRED_CSS = [
     ("prefers-color-scheme: dark", "dark theme"),
-    ('[data-theme="dark"]', "theme override"),
 ]
+
+# A [data-theme="dark"] override was required here until 2026-08-29. Nothing on
+# the site could ever set that attribute: there is no build step, no server-side
+# rendering, and tests/test_validate_site.py forbids any executable <script>, so
+# the only mechanism that could toggle it is one the suite rejects. The rule
+# therefore mandated 660 bytes of unreachable CSS on every page load and blocked
+# two legitimate theming refactors (a .theme-dark class, and light-dark()).
+# prefers-color-scheme above is the mechanism that actually works, and it is
+# still enforced. Restore an override rule only alongside something that can
+# set it.
 
 # Landing page carries the SEO surface that the 404 deliberately does not.
 INDEX_ONLY_META = [
@@ -123,7 +133,7 @@ def css_for(src: str) -> str:
 
 
 def check_html() -> None:
-    pages = sorted(SITE.glob("*.html"))
+    pages = sorted(SITE.rglob("*.html"))
     if not pages:
         fail("no HTML pages found in site/")
         return
@@ -186,7 +196,7 @@ def check_sitemap() -> None:
 # <link> rel values that cause an actual fetch. Everything else (canonical,
 # alternate, author...) is metadata and is never subject to CSP.
 FETCHING_REL = {"stylesheet", "preload", "prefetch", "icon", "shortcut icon",
-                "apple-touch-icon", "manifest", "modulepreload"}
+                "apple-touch-icon", "mask-icon", "manifest", "modulepreload"}
 
 
 def is_external(url: str) -> bool:
@@ -208,7 +218,7 @@ def check_no_external_refs() -> None:
     Attribute quoting, URL scheme and rel spelling are all things a contributor
     varies without thinking about it, so match on all the forms a browser
     honours rather than the one this site happens to use today."""
-    for page in sorted(SITE.glob("*.html")):
+    for page in sorted(SITE.rglob("*.html")):
         src = page.read_text(encoding="utf-8")
         bad: list[str] = []
 
@@ -233,17 +243,79 @@ def check_no_external_refs() -> None:
             if tokens & FETCHING_REL:
                 bad.append(href.group(1))
 
-        # @import fetches a stylesheet from inside CSS and is governed by
-        # style-src, but never appears as a src= or <link> so the checks above
-        # cannot see it.
-        for value in re.findall(r"@import\s+(?:url\()?\s*['\"]?([^'\")\s;]+)", css_for(src), re.I):
+        # CSS fetches that never appear as a src= or a <link>, so none of the
+        # checks above can see them:
+        #   @import   pulls a stylesheet (style-src)
+        #   url(...)  pulls background-image, @font-face src, mask, cursor...
+        # The url() case is the likeliest way a contributor ships a Google Font
+        # and only finds out in production.
+        css = css_for(src)
+        for value in re.findall(r"@import\s+(?:url\()?\s*['\"]?([^'\")\s;]+)", css, re.I):
             if is_external(value):
                 bad.append(value)
+        for value in re.findall(r"url\(\s*['\"]?([^'\")\s]+)", css, re.I):
+            if is_external(value):
+                bad.append(value)
+
+        # <use href> and <image href> pull an external SVG sprite. The CSP
+        # refuses it at runtime, so without this it ships broken rather than
+        # failing the check.
+        for tag in re.findall(r"<(?:use|image)\b[^>]*>", src, re.I):
+            href = re.search(r'\b(?:xlink:)?href\s*=\s*["\']([^"\']+)["\']', tag, re.I)
+            if href and is_external(href.group(1)):
+                bad.append(href.group(1))
 
         if bad:
             fail(f"{page.name}: external subresource would be blocked by CSP — {bad}")
         else:
             ok(f"{page.name}: no external subresources")
+
+
+# Mirrors scripts/fingerprint_assets.py::FINGERPRINTED. tests/test_assets.py
+# asserts the two have not drifted apart -- the duplication is deliberate so the
+# gate stays dependency-free, but it needs a guard.
+ASSET_FINGERPRINT = re.compile(r"^(?P<stem>.+)\.(?P<hash>[0-9a-f]{8})\.(?P<ext>[A-Za-z0-9]+)$")
+
+
+def check_assets() -> None:
+    """_headers caches /assets/* for a year with `immutable`, so the browser
+    never revalidates -- not even on a hard reload. With no build step, the
+    filename is the only cache-buster there is.
+
+    Two failure modes, and the second is the one a name-pattern check alone
+    would miss: a correctly-named asset edited in place keeps its old hash and
+    is then served stale, from cache, for twelve months.
+    """
+    assets = SITE / "assets"
+    if not assets.is_dir():
+        ok("no site/assets/ directory (nothing to fingerprint)")
+    else:
+        for f in sorted(assets.rglob("*")):
+            if not f.is_file():
+                continue
+            rel = f.relative_to(SITE)
+            m = ASSET_FINGERPRINT.match(f.name)
+            if not m:
+                fail(f"{rel}: not fingerprinted — /assets/* is immutable for a "
+                     f"year, so the name must be <stem>.<hash8>.<ext>")
+                continue
+            actual = hashlib.sha256(f.read_bytes()).hexdigest()[:len(m.group("hash"))]
+            if actual != m.group("hash"):
+                fail(f"{rel}: filename hash {m.group('hash')} does not match its "
+                     f"content ({actual}) — edited in place, will serve stale for a year")
+            else:
+                ok(f"{rel}: fingerprinted ({f.stat().st_size:,} B)")
+
+    # A rename that missed a reference produces a 404 on a cached path.
+    referenced: set[str] = set()
+    for page in sorted(SITE.rglob("*.html")):
+        src = page.read_text(encoding="utf-8")
+        referenced.update(re.findall(r"/assets/([^\"'\s)>]+)", src))
+    for name in sorted(referenced):
+        if (SITE / "assets" / name).is_file():
+            ok(f"asset reference resolves: /assets/{name}")
+        else:
+            fail(f"dangling asset reference: /assets/{name} does not exist")
 
 
 def main() -> int:
@@ -256,6 +328,7 @@ def main() -> int:
     check_html()
     check_index_meta()
     check_sitemap()
+    check_assets()
     check_no_external_refs()
 
     print()

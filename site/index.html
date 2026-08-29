@@ -11,17 +11,43 @@
 <meta property="og:title" content="BountyCharts — TCG price and metagame intelligence">
 <meta property="og:description" content="What will this deck cost you next week? Price and metagame intelligence for trading card games, starting with Riftbound.">
 <meta property="og:site_name" content="BountyCharts">
-<meta name="twitter:card" content="summary">
+<meta name="twitter:card" content="summary_large_image">
+<meta property="og:image" content="https://bountycharts.com/assets/og-card.e33ef5a7.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="BountyCharts wordmark above the question: what will this deck cost you next week? Strapline: price movement against metagame shift, Riftbound first.">
 <meta name="theme-color" content="#0E1116" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#FAFAF8" media="(prefers-color-scheme: light)">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>📈</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><path d='M16 2 30 16 16 30 2 16Z' fill='%23B8862B'></path><path d='M9 18.5h4v-4h3v-3h3v5h4' fill='none' stroke='%230E1116' stroke-width='3' stroke-linecap='square'></path></svg>">
+<link rel="apple-touch-icon" href="/assets/touch-icon-180.b195fa86.png">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "WebSite",
-  "name": "BountyCharts",
-  "url": "https://bountycharts.com/",
-  "description": "Price and metagame intelligence for trading card games."
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://bountycharts.com/#website",
+      "name": "BountyCharts",
+      "url": "https://bountycharts.com/",
+      "description": "Price and metagame intelligence for trading card games.",
+      "inLanguage": "en",
+      "publisher": { "@id": "https://bountycharts.com/#publisher" }
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://bountycharts.com/#publisher",
+      "name": "Oak and Main Developers LLC",
+      "url": "https://bountycharts.com/",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "2108 N St.",
+        "addressLocality": "Sacramento",
+        "addressRegion": "CA",
+        "postalCode": "95816",
+        "addressCountry": "US"
+      }
+    }
+  ]
 }
 </script>
 <style>
@@ -30,10 +56,10 @@
     --surface: #FFFFFF;
     --ink: #14181E;
     --ink-soft: #59616E;
-    --ink-faint: #8A93A1;
+    --ink-faint: #6D747F;
     --rule: #E2E4E4;
-    --gold: #9A6F1E;
-    --gold-bright: #C9973F;
+    --gold: #966C1D;
+    --gold-bright: #7A5716;
     --up: #17795E;
     --down: #B23B30;
     --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
@@ -42,19 +68,9 @@
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #0E1116; --surface: #161A21; --ink: #E9ECF1; --ink-soft: #99A2B0;
-      --ink-faint: #6B7482; --rule: #232932; --gold: #D9A94F; --gold-bright: #EBC475;
+      --ink-faint: #838C9A; --rule: #232932; --gold: #D9A94F; --gold-bright: #EBC475;
       --up: #4FBF97; --down: #E8756A;
     }
-  }
-  :root[data-theme="dark"] {
-    --bg: #0E1116; --surface: #161A21; --ink: #E9ECF1; --ink-soft: #99A2B0;
-    --ink-faint: #6B7482; --rule: #232932; --gold: #D9A94F; --gold-bright: #EBC475;
-    --up: #4FBF97; --down: #E8756A;
-  }
-  :root[data-theme="light"] {
-    --bg: #FAFAF8; --surface: #FFFFFF; --ink: #14181E; --ink-soft: #59616E;
-    --ink-faint: #8A93A1; --rule: #E2E4E4; --gold: #9A6F1E; --gold-bright: #C9973F;
-    --up: #17795E; --down: #B23B30;
   }
 
   * { box-sizing: border-box; }
@@ -155,17 +171,28 @@
   .cell .d { font-family: var(--mono); font-size: 0.78rem; font-variant-numeric: tabular-nums; }
   .up { color: var(--up); }
   .down { color: var(--down); }
+  .ticker-cap {
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    max-width: 62ch;
+    margin: 0 0 0.75rem;
+  }
   .cell.sample { position: relative; }
+  /* This badge is the disclosure marking the four figures above as fictional,
+     so it is the one label on the page that must not be hard to read. It had
+     opacity 0.75, which composites toward the background and dropped it to
+     2.94:1 in light and 3.49:1 in dark -- below AA even after the palette fix,
+     and invisible to a check that reads the specified colour. No opacity here.
+     Sized to match .cell .k rather than inventing a smaller step. */
   .cell.sample::after {
     content: "sample";
     position: absolute;
     top: 0.6rem; right: 0.7rem;
     font-family: var(--mono);
-    font-size: 0.58rem;
-    letter-spacing: 0.1em;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--ink-faint);
-    opacity: 0.75;
+    color: var(--ink-soft);
   }
 
   /* sections */
@@ -196,6 +223,15 @@
     color: var(--ink-faint);
   }
 
+  .reading {
+    margin: 0;
+    padding-left: 1.1rem;
+    max-width: 60ch;
+    color: var(--ink-soft);
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
   .note {
     border-left: 3px solid var(--gold);
     padding: 0.9rem 0 0.9rem 1.15rem;
@@ -222,7 +258,9 @@
     color: var(--ink-faint);
   }
   a { color: var(--gold); text-underline-offset: 2px; }
-  a:hover { color: var(--gold-bright); }
+  /* Hover darkens rather than lightens, and thickens the underline so the
+     affordance does not depend on colour at all. */
+  a:hover { color: var(--gold-bright); text-decoration-thickness: 2px; }
   a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 2px; }
 
   @media (prefers-reduced-motion: reduce) {
@@ -270,7 +308,9 @@
     <p class="lede">Every trading card game has a dozen tools that tell you which deck is best. None of them tell you what it will cost to build by the time you finish reading. BountyCharts sits on that intersection — price movement against metagame shift.</p>
   </div>
 
-  <div class="ticker" role="img" aria-label="Illustrative example: a deck's cost rising as its metagame share grows, and a card falling after losing play rate.">
+  <div>
+  <p class="ticker-cap" id="ticker-cap">Illustrative mock-up: invented figures for a deck cost rising with meta share, a card falling as play rate drops, a price spread, and a reprint-risk flag. BountyCharts is not tracking live data yet.</p>
+  <div class="ticker" role="img" aria-labelledby="ticker-cap">
     <div class="cell sample">
       <span class="k">Deck cost · 7d</span>
       <span class="v up">+18.4%</span>
@@ -291,6 +331,7 @@
       <span class="v">Elevated</span>
       <span class="d">set rotation window</span>
     </div>
+  </div>
   </div>
 
   <section>
@@ -329,15 +370,20 @@
 
   <section>
     <h2>Status</h2>
-    <p class="tight">Pre-launch. The market research behind this is finished and public — a primary-source audit of the 2024–2026 TCG market, including a unit-economics model and a fact-check of the industry figures most commonly cited. The product is in build.</p>
-    <p class="tight"><a href="https://github.com/kevynsgrin-a11y/BountyCharts">Read the research on GitHub →</a></p>
+    <p class="tight">Pre-launch — the product is in build. The market research behind it is finished and public, and you can read all of it without taking our word for any of it.</p>
+    <ul class="reading">
+      <li><a href="https://github.com/kevynsgrin-a11y/BountyCharts/blob/main/docs/tcg-deep-dive-2026.md">The deep dive</a> — a primary-source analysis of the 2024–2026 TCG market, and the four premises in the source report that do not hold.</li>
+      <li><a href="https://github.com/kevynsgrin-a11y/BountyCharts/blob/main/docs/fact-check-ledger.md">The fact-check ledger</a> — 38 claims from that report, audited one at a time: 17 confirmed, 5 overstated, 10 materially wrong, 6 unsourced.</li>
+      <li><a href="https://github.com/kevynsgrin-a11y/BountyCharts/blob/main/models/unit_economics.py">The unit-economics model</a> — runnable, standard library only. Every revenue figure in the deep dive traces to an assumption you can change and re-run.</li>
+    </ul>
+    <p class="tight"><a href="https://github.com/kevynsgrin-a11y/BountyCharts">All of it on GitHub →</a></p>
   </section>
 
   </main>
 
   <footer>
     <p>BountyCharts is an independent project. It is not affiliated with, endorsed by, or sponsored by Riot Games, The Pokémon Company, Bandai Namco, Wizards of the Coast, or any card game publisher. All game names and trademarks belong to their respective owners.</p>
-    <p>© 2026 BountyCharts</p>
+    <p>© 2026–present Oak and Main Developers LLC. BountyCharts is a project of Oak and Main Developers LLC, Sacramento, California.</p>
   </footer>
 
 </div>
