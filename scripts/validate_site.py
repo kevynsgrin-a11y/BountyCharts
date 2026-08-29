@@ -43,8 +43,17 @@ REQUIRED_META = [
 # CSS into a stylesheet without the gate reporting it as deleted dark mode.
 REQUIRED_CSS = [
     ("prefers-color-scheme: dark", "dark theme"),
-    ('[data-theme="dark"]', "theme override"),
 ]
+
+# A [data-theme="dark"] override was required here until 2026-08-29. Nothing on
+# the site could ever set that attribute: there is no build step, no server-side
+# rendering, and tests/test_validate_site.py forbids any executable <script>, so
+# the only mechanism that could toggle it is one the suite rejects. The rule
+# therefore mandated 660 bytes of unreachable CSS on every page load and blocked
+# two legitimate theming refactors (a .theme-dark class, and light-dark()).
+# prefers-color-scheme above is the mechanism that actually works, and it is
+# still enforced. Restore an override rule only alongside something that can
+# set it.
 
 # Landing page carries the SEO surface that the 404 deliberately does not.
 INDEX_ONLY_META = [
