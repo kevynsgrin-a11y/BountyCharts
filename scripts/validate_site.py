@@ -10,6 +10,7 @@ Exits non-zero on any failure so a broken page cannot reach production.
 
 from __future__ import annotations
 
+import hashlib
 import html.parser
 import json
 import pathlib
@@ -261,6 +262,53 @@ def check_no_external_refs() -> None:
             ok(f"{page.name}: no external subresources")
 
 
+# Mirrors scripts/fingerprint_assets.py::FINGERPRINTED. tests/test_assets.py
+# asserts the two have not drifted apart -- the duplication is deliberate so the
+# gate stays dependency-free, but it needs a guard.
+ASSET_FINGERPRINT = re.compile(r"^(?P<stem>.+)\.(?P<hash>[0-9a-f]{8})\.(?P<ext>[A-Za-z0-9]+)$")
+
+
+def check_assets() -> None:
+    """_headers caches /assets/* for a year with `immutable`, so the browser
+    never revalidates -- not even on a hard reload. With no build step, the
+    filename is the only cache-buster there is.
+
+    Two failure modes, and the second is the one a name-pattern check alone
+    would miss: a correctly-named asset edited in place keeps its old hash and
+    is then served stale, from cache, for twelve months.
+    """
+    assets = SITE / "assets"
+    if not assets.is_dir():
+        ok("no site/assets/ directory (nothing to fingerprint)")
+    else:
+        for f in sorted(assets.rglob("*")):
+            if not f.is_file():
+                continue
+            rel = f.relative_to(SITE)
+            m = ASSET_FINGERPRINT.match(f.name)
+            if not m:
+                fail(f"{rel}: not fingerprinted — /assets/* is immutable for a "
+                     f"year, so the name must be <stem>.<hash8>.<ext>")
+                continue
+            actual = hashlib.sha256(f.read_bytes()).hexdigest()[:len(m.group("hash"))]
+            if actual != m.group("hash"):
+                fail(f"{rel}: filename hash {m.group('hash')} does not match its "
+                     f"content ({actual}) — edited in place, will serve stale for a year")
+            else:
+                ok(f"{rel}: fingerprinted ({f.stat().st_size:,} B)")
+
+    # A rename that missed a reference produces a 404 on a cached path.
+    referenced: set[str] = set()
+    for page in sorted(SITE.rglob("*.html")):
+        src = page.read_text(encoding="utf-8")
+        referenced.update(re.findall(r"/assets/([^\"'\s)>]+)", src))
+    for name in sorted(referenced):
+        if (SITE / "assets" / name).is_file():
+            ok(f"asset reference resolves: /assets/{name}")
+        else:
+            fail(f"dangling asset reference: /assets/{name} does not exist")
+
+
 def main() -> int:
     if not SITE.is_dir():
         print("FAIL  site/ directory not found")
@@ -271,6 +319,7 @@ def main() -> int:
     check_html()
     check_index_meta()
     check_sitemap()
+    check_assets()
     check_no_external_refs()
 
     print()
