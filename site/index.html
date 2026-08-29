@@ -228,6 +228,15 @@
     color: var(--ink-faint);
   }
 
+  .reading {
+    margin: 0;
+    padding-left: 1.1rem;
+    max-width: 60ch;
+    color: var(--ink-soft);
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
   .note {
     border-left: 3px solid var(--gold);
     padding: 0.9rem 0 0.9rem 1.15rem;
@@ -366,8 +375,13 @@
 
   <section>
     <h2>Status</h2>
-    <p class="tight">Pre-launch. The market research behind this is finished and public — a primary-source audit of the 2024–2026 TCG market, including a unit-economics model and a fact-check of the industry figures most commonly cited. The product is in build.</p>
-    <p class="tight"><a href="https://github.com/kevynsgrin-a11y/BountyCharts">Read the research on GitHub →</a></p>
+    <p class="tight">Pre-launch — the product is in build. The market research behind it is finished and public, and you can read all of it without taking our word for any of it.</p>
+    <ul class="reading">
+      <li><a href="https://github.com/kevynsgrin-a11y/BountyCharts/blob/main/docs/tcg-deep-dive-2026.md">The deep dive</a> — a primary-source analysis of the 2024–2026 TCG market, and the four premises in the source report that do not hold.</li>
+      <li><a href="https://github.com/kevynsgrin-a11y/BountyCharts/blob/main/docs/fact-check-ledger.md">The fact-check ledger</a> — 38 claims from that report, audited one at a time: 17 confirmed, 5 overstated, 10 materially wrong, 6 unsourced.</li>
+      <li><a href="https://github.com/kevynsgrin-a11y/BountyCharts/blob/main/models/unit_economics.py">The unit-economics model</a> — runnable, standard library only. Every revenue figure in the deep dive traces to an assumption you can change and re-run.</li>
+    </ul>
+    <p class="tight"><a href="https://github.com/kevynsgrin-a11y/BountyCharts">All of it on GitHub →</a></p>
   </section>
 
   </main>
