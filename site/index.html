@@ -176,6 +176,12 @@
   .cell .d { font-family: var(--mono); font-size: 0.78rem; font-variant-numeric: tabular-nums; }
   .up { color: var(--up); }
   .down { color: var(--down); }
+  .ticker-cap {
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    max-width: 62ch;
+    margin: 0 0 0.75rem;
+  }
   .cell.sample { position: relative; }
   /* This badge is the disclosure marking the four figures above as fictional,
      so it is the one label on the page that must not be hard to read. It had
@@ -188,10 +194,10 @@
     position: absolute;
     top: 0.6rem; right: 0.7rem;
     font-family: var(--mono);
-    font-size: 0.66rem;
-    letter-spacing: 0.1em;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--ink-faint);
+    color: var(--ink-soft);
   }
 
   /* sections */
@@ -298,7 +304,9 @@
     <p class="lede">Every trading card game has a dozen tools that tell you which deck is best. None of them tell you what it will cost to build by the time you finish reading. BountyCharts sits on that intersection — price movement against metagame shift.</p>
   </div>
 
-  <div class="ticker" role="img" aria-label="Illustrative example: a deck's cost rising as its metagame share grows, and a card falling after losing play rate.">
+  <div>
+  <p class="ticker-cap" id="ticker-cap">Illustrative mock-up: invented figures for a deck cost rising with meta share, a card falling as play rate drops, a price spread, and a reprint-risk flag. BountyCharts is not tracking live data yet.</p>
+  <div class="ticker" role="img" aria-labelledby="ticker-cap">
     <div class="cell sample">
       <span class="k">Deck cost · 7d</span>
       <span class="v up">+18.4%</span>
@@ -319,6 +327,7 @@
       <span class="v">Elevated</span>
       <span class="d">set rotation window</span>
     </div>
+  </div>
   </div>
 
   <section>
