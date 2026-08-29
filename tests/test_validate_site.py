@@ -202,6 +202,69 @@ class GateCatchesCspBlockedSubresources(unittest.TestCase):
         self.assertEqual(code, 0, "a same-origin subresource must not be flagged:\n" + out)
 
 
+class GateCatchesCssAndSvgFetches(unittest.TestCase):
+    """Four constructs that fetch, that the CSP refuses at runtime, and that
+    the gate could not see. The url() case is the likeliest way a contributor
+    ships a Google Font and only finds out in production."""
+
+    def _style(self, snippet):
+        def mutate(site):
+            write(site, "index.html",
+                  read(site, "index.html").replace("<style>", "<style>" + snippet, 1))
+        return mutate
+
+    def test_external_background_image_url_is_caught(self):
+        code, out = run_gate(
+            self._style('.x{background-image:url("https://cdn.example.com/bg.png")}'))
+        self.assertEqual(code, 1, "CSS url() slipped past the gate:\n" + out)
+
+    def test_external_font_face_src_is_caught(self):
+        code, out = run_gate(
+            self._style('@font-face{font-family:X;src:url("https://fonts.gstatic.com/x.woff2")}'))
+        self.assertEqual(code, 1, "@font-face url() slipped past the gate:\n" + out)
+
+    def test_external_mask_icon_is_caught(self):
+        def mutate(site):
+            write(site, "index.html", read(site, "index.html").replace(
+                "</head>", '<link rel="mask-icon" href="https://cdn.example.com/m.svg"></head>'))
+        code, out = run_gate(mutate)
+        self.assertEqual(code, 1, "mask-icon slipped past the gate:\n" + out)
+
+    def test_external_svg_use_sprite_is_caught(self):
+        def mutate(site):
+            write(site, "index.html", read(site, "index.html").replace(
+                "<main>", '<main><svg><use href="https://cdn.example.com/s.svg#m"/></svg>'))
+        code, out = run_gate(mutate)
+        self.assertEqual(code, 1, "<use href> slipped past the gate:\n" + out)
+
+    def test_local_url_in_css_is_not_flagged(self):
+        """Same-origin is exactly what the CSP allows."""
+        def mutate(site):
+            (site / "bg.png").write_bytes(b"\x89PNG\r\n")
+            write(site, "index.html", read(site, "index.html").replace(
+                "<style>", '<style>.x{background-image:url("/bg.png")}', 1))
+        code, out = run_gate(mutate)
+        self.assertEqual(code, 0, "a same-origin url() must not be flagged:\n" + out)
+
+
+class GateSeesSubdirectories(unittest.TestCase):
+    """The gate globbed site/*.html non-recursively, so an entire nested page
+    escaped every check at once -- no lang, no viewport, no <main>, unbalanced
+    markup and an external script all returned "All checks passed"."""
+
+    def test_nested_page_is_checked(self):
+        def mutate(site):
+            (site / "nested").mkdir()
+            (site / "nested" / "index.html").write_text(
+                '<html><head><title>x</title></head><body><div>'
+                '<script src="https://evil.example.com/a.js"></script></body></html>',
+                encoding="utf-8")
+        code, out = run_gate(mutate)
+        self.assertEqual(code, 1, "a nested page escaped every check:\n" + out)
+        self.assertIn("missing lang attribute", out)
+        self.assertIn("external subresource", out)
+
+
 class SitemapIsDated(unittest.TestCase):
     """changefreq without lastmod tells a crawler how often to come back but
     never whether anything actually changed."""
@@ -267,7 +330,7 @@ class CspDoesNotAllowInlineScript(unittest.TestCase):
 
     def test_no_executable_script_is_served(self):
         """Guards the assumption the tightened policy rests on."""
-        for page in sorted(SITE.glob("*.html")):
+        for page in sorted(SITE.rglob("*.html")):
             with self.subTest(page=page.name):
                 src = page.read_text(encoding="utf-8")
                 for tag in re.findall(r"<script\b[^>]*>", src, re.I):
@@ -297,7 +360,7 @@ class LandmarksArePresent(unittest.TestCase):
     way to skip to it. 404.html already got this right; index.html did not."""
 
     def test_every_page_has_a_main_landmark(self):
-        for page in sorted(SITE.glob("*.html")):
+        for page in sorted(SITE.rglob("*.html")):
             with self.subTest(page=page.name):
                 src = page.read_text(encoding="utf-8")
                 self.assertRegex(

@@ -123,7 +123,7 @@ def css_for(src: str) -> str:
 
 
 def check_html() -> None:
-    pages = sorted(SITE.glob("*.html"))
+    pages = sorted(SITE.rglob("*.html"))
     if not pages:
         fail("no HTML pages found in site/")
         return
@@ -186,7 +186,7 @@ def check_sitemap() -> None:
 # <link> rel values that cause an actual fetch. Everything else (canonical,
 # alternate, author...) is metadata and is never subject to CSP.
 FETCHING_REL = {"stylesheet", "preload", "prefetch", "icon", "shortcut icon",
-                "apple-touch-icon", "manifest", "modulepreload"}
+                "apple-touch-icon", "mask-icon", "manifest", "modulepreload"}
 
 
 def is_external(url: str) -> bool:
@@ -208,7 +208,7 @@ def check_no_external_refs() -> None:
     Attribute quoting, URL scheme and rel spelling are all things a contributor
     varies without thinking about it, so match on all the forms a browser
     honours rather than the one this site happens to use today."""
-    for page in sorted(SITE.glob("*.html")):
+    for page in sorted(SITE.rglob("*.html")):
         src = page.read_text(encoding="utf-8")
         bad: list[str] = []
 
@@ -233,12 +233,27 @@ def check_no_external_refs() -> None:
             if tokens & FETCHING_REL:
                 bad.append(href.group(1))
 
-        # @import fetches a stylesheet from inside CSS and is governed by
-        # style-src, but never appears as a src= or <link> so the checks above
-        # cannot see it.
-        for value in re.findall(r"@import\s+(?:url\()?\s*['\"]?([^'\")\s;]+)", css_for(src), re.I):
+        # CSS fetches that never appear as a src= or a <link>, so none of the
+        # checks above can see them:
+        #   @import   pulls a stylesheet (style-src)
+        #   url(...)  pulls background-image, @font-face src, mask, cursor...
+        # The url() case is the likeliest way a contributor ships a Google Font
+        # and only finds out in production.
+        css = css_for(src)
+        for value in re.findall(r"@import\s+(?:url\()?\s*['\"]?([^'\")\s;]+)", css, re.I):
             if is_external(value):
                 bad.append(value)
+        for value in re.findall(r"url\(\s*['\"]?([^'\")\s]+)", css, re.I):
+            if is_external(value):
+                bad.append(value)
+
+        # <use href> and <image href> pull an external SVG sprite. The CSP
+        # refuses it at runtime, so without this it ships broken rather than
+        # failing the check.
+        for tag in re.findall(r"<(?:use|image)\b[^>]*>", src, re.I):
+            href = re.search(r'\b(?:xlink:)?href\s*=\s*["\']([^"\']+)["\']', tag, re.I)
+            if href and is_external(href.group(1)):
+                bad.append(href.group(1))
 
         if bad:
             fail(f"{page.name}: external subresource would be blocked by CSP — {bad}")
