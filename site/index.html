@@ -30,10 +30,10 @@
     --surface: #FFFFFF;
     --ink: #14181E;
     --ink-soft: #59616E;
-    --ink-faint: #8A93A1;
+    --ink-faint: #6D747F;
     --rule: #E2E4E4;
-    --gold: #9A6F1E;
-    --gold-bright: #C9973F;
+    --gold: #966C1D;
+    --gold-bright: #7A5716;
     --up: #17795E;
     --down: #B23B30;
     --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
@@ -42,18 +42,18 @@
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #0E1116; --surface: #161A21; --ink: #E9ECF1; --ink-soft: #99A2B0;
-      --ink-faint: #6B7482; --rule: #232932; --gold: #D9A94F; --gold-bright: #EBC475;
+      --ink-faint: #838C9A; --rule: #232932; --gold: #D9A94F; --gold-bright: #EBC475;
       --up: #4FBF97; --down: #E8756A;
     }
   }
   :root[data-theme="dark"] {
     --bg: #0E1116; --surface: #161A21; --ink: #E9ECF1; --ink-soft: #99A2B0;
-    --ink-faint: #6B7482; --rule: #232932; --gold: #D9A94F; --gold-bright: #EBC475;
+    --ink-faint: #838C9A; --rule: #232932; --gold: #D9A94F; --gold-bright: #EBC475;
     --up: #4FBF97; --down: #E8756A;
   }
   :root[data-theme="light"] {
     --bg: #FAFAF8; --surface: #FFFFFF; --ink: #14181E; --ink-soft: #59616E;
-    --ink-faint: #8A93A1; --rule: #E2E4E4; --gold: #9A6F1E; --gold-bright: #C9973F;
+    --ink-faint: #6D747F; --rule: #E2E4E4; --gold: #966C1D; --gold-bright: #7A5716;
     --up: #17795E; --down: #B23B30;
   }
 
@@ -156,16 +156,21 @@
   .up { color: var(--up); }
   .down { color: var(--down); }
   .cell.sample { position: relative; }
+  /* This badge is the disclosure marking the four figures above as fictional,
+     so it is the one label on the page that must not be hard to read. It had
+     opacity 0.75, which composites toward the background and dropped it to
+     2.94:1 in light and 3.49:1 in dark -- below AA even after the palette fix,
+     and invisible to a check that reads the specified colour. No opacity here.
+     Sized to match .cell .k rather than inventing a smaller step. */
   .cell.sample::after {
     content: "sample";
     position: absolute;
     top: 0.6rem; right: 0.7rem;
     font-family: var(--mono);
-    font-size: 0.58rem;
+    font-size: 0.66rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--ink-faint);
-    opacity: 0.75;
   }
 
   /* sections */
@@ -222,7 +227,9 @@
     color: var(--ink-faint);
   }
   a { color: var(--gold); text-underline-offset: 2px; }
-  a:hover { color: var(--gold-bright); }
+  /* Hover darkens rather than lightens, and thickens the underline so the
+     affordance does not depend on colour at all. */
+  a:hover { color: var(--gold-bright); text-decoration-thickness: 2px; }
   a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 2px; }
 
   @media (prefers-reduced-motion: reduce) {
