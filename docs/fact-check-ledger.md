@@ -85,10 +85,10 @@ Verified July 2026. Status key: **✅ Confirmed** · **⚠️ Materially wrong**
 
 | Category | Count |
 |---|---|
-| ✅ Confirmed | 15 |
-| 🟡 Partly true / overstated | 6 |
+| ✅ Confirmed | 17 |
+| 🟡 Partly true / overstated | 5 |
 | ⚠️ Materially wrong | 10 |
-| ❓ Unsubstantiated | 7 |
+| ❓ Unsubstantiated | 6 |
 
 **Where the report is strongest:** the Altered TCG failure analysis, the identification of first-click/48-hour attribution as a binding constraint, and the Riftbound launch metrics — all accurate and genuinely useful.
 

@@ -33,9 +33,13 @@ Capabilities established before anything was measured:
   Chromium-verified and explicitly not confirmed in Safari or Firefox.
 
 Deploy history was checked instead: three workflow runs exist, the most recent green on `main`.
-Cloudflare credentials are not configured, so the deploy job takes its skip path. **There may be
-no live site at all yet** — which makes the local measurements the authoritative ones rather than
-a fallback.
+Cloudflare credentials are not configured, so the deploy job takes its skip path.
+
+> **Superseded 2026-08-28.** A Cloudflare Pages deployment now exists — see **C3** below. The
+> statement originally here, that there may be no live site at all, is no longer true. The live URL
+> is still unreachable from this session (egress-blocked, 403 CONNECT on both `curl` and the fetch
+> tool, retested against the new preview URLs), so the local measurements remain the authoritative
+> ones — but now because of a network restriction, not because nothing is deployed.
 
 ### A note on method
 
@@ -48,8 +52,14 @@ tool calls rejected, 2 succeeded** (both zero-parameter calls). No subagent exec
 parameterised tool, so none of them measured anything.
 
 The failure is deterministic rather than flaky, so it was not retried. Every finding below was
-therefore measured directly, in the main session, where tools work normally. Nothing in this
-document came from an agent.
+therefore measured directly, in the main session, where tools work normally. Nothing in the
+original 20 findings came from an agent.
+
+> **Scope note, 2026-08-28.** That statement covers the original 20 findings only. Two later
+> additions do involve agent work, and say so where they appear: the **H1** draft correction was
+> caught by an adversarial verifier during the content-and-image specification pass (and
+> re-measured here before being accepted), and **C3** was found by me from this PR's own deploy
+> records. A separate 12-agent run for that specification completed 12/12.
 
 ### Evidence grades
 
@@ -58,6 +68,9 @@ document came from an agent.
 | MEASURED | 16 | Code executed, browser driven, or value computed. The number is in the finding. |
 | OBSERVED | 3 | Read directly in source, cited to the line. |
 | INFERRED | 1 | Reasoned from code not executed. States what would confirm it. |
+
+*(Counts cover the original 20 findings. **C3**, added 2026-08-28, is MEASURED — its
+deploy-ordering timeline was observed directly.)*
 
 No finding at high severity or above rests on inference alone. **11 candidate findings were
 discarded** during re-verification — listed at the end, because what failed to survive is as
@@ -72,10 +85,18 @@ informative as what did.
 This is a better-built page than most audits get to open with, and the specifics matter because a
 redesign could easily destroy them without noticing.
 
-- **It is 10.2 KB in one request.** Measured: 1 HTTP request, 10,447 bytes, 75 DOM nodes, load
-  event at 50 ms. No framework, no build step, no external asset, no font download, no tracker,
-  no cookie banner. A redesign that adds a CSS framework and a web font will be 20× the weight
-  before it renders a single new idea.
+- **It is 3.2 KB on the wire, in one request.** Measured: 1 HTTP request; `index.html` is 11,657 B
+  raw and **3,179 B brotli q11 (27.3%)**, which is the production wire cost; 76 DOM elements;
+  `loadEventEnd` median 21.9 ms. No framework, no build step, no external asset, no font download,
+  no tracker, no cookie banner. A redesign that adds a CSS framework and a web font will be many
+  times the weight before it renders a single new idea.
+
+  > **Corrected 2026-08-28.** This bullet originally read "10.2 KB in one request … load event at
+  > 50 ms". That figure was the *uncompressed* transfer from the local test server, which sends
+  > `identity`, and a single cold-start load sample. Re-measured with brotli and n≥9, the site is
+  > **better** than this document first reported. Binary images do not compress this way — measured
+  > brotli on a PNG returns 92.6% of original — which is why §8 of the content-and-image spec
+  > budgets images against 3,179 B rather than 10,447 B.
 - **It works with JavaScript disabled**, because it ships none. Verified in a JS-disabled browser
   context: the hero, the ticker and the link all render identically. There is no loading state to
   design because there is no load.
@@ -115,11 +136,11 @@ is left to find it.
 
 | Severity | Count | Fixed here | Flagged for review | Reported only |
 |---|---:|---:|---:|---:|
-| Critical | 1 | 1 | 0 | 0 |
+| Critical | 2 | 1 | 0 | 1 |
 | High | 5 | 2 | 0 | 3 |
 | Medium | 9 | 3 | 2 | 4 |
 | Low | 5 | 1 | 0 | 4 |
-| **Total** | **20** | **7** | **2** | **11** |
+| **Total** | **21** | **7** | **2** | **12** |
 
 ---
 
@@ -201,6 +222,71 @@ Two cases still block, now honestly and on both pages: switching to a `.theme-da
 adopting `light-dark()`. Those are genuine contract questions for a human — see **H4**.
 
 **Effort:** shipped, ~2 hours including the test suite.
+
+---
+
+### C3 — The deploy gate does not gate the deploy that actually reaches production
+
+**MEASURED.** `.github/workflows/deploy.yml:30-67`, `docs/deployment/cloudflare.md:20-95`
+
+Discovered on 2026-08-28, when a Cloudflare Pages deployment appeared on PR #3.
+
+**What is measured.** On workflow run `33169303324` (head `243b156`), the `deploy` job completed
+`success` with its `Deploy to Cloudflare Pages` step **`skipped`** — the credential check found no
+`CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` and took the documented skip path. At the same time,
+`cloudflare-workers-and-pages[bot]` posted successful deployments for both `8ef93ee` and `4e102aa`,
+serving `https://<hash>.bountycharts.pages.dev` and a branch preview.
+
+So the site is being deployed by **Cloudflare Pages' own Git integration**, not by the workflow this
+repository documents, tests and gates. There are two deploy paths, and the one with the gate in
+front of it is the one that is not running.
+
+**What follows.** Cloudflare's documentation states that Pages "will automatically rebuild your
+project and deploy it on every new pushed commit", and that preview deployments "repeat the
+build-and-deploy process for pull requests". Nothing in that pipeline consults GitHub Actions. So
+`scripts/validate_site.py` — the subject of finding **C1**, described there as the only thing
+standing between a broken page and production — does not stand between them at all on this path.
+A commit that fails the gate still gets built and served by Pages.
+
+**The ordering is measured, not assumed.** Two consecutive pushes, from this session's event stream
+and the PR's check-run records:
+
+| head | Pages build starts | `validate` starts | `validate` completes | Pages reports success |
+|---|---|---|---|---|
+| `a0a2f8d` | 13:08:23 | 13:08:27 | 13:08:33 | 13:08:34 |
+| `ff28515` | 13:10:24 | 13:10:26 | 13:10:31 | 13:10:39 |
+
+**Replicated on both: the Pages build begins before the `validate` job starts** — by 4 s and 2 s
+respectively. A deploy that has already started before the gate has begun cannot be conditioned on
+the gate's result.
+
+Note what did *not* replicate. On `a0a2f8d` Pages also reported success one second *before*
+`validate` finished; on `ff28515` it reported eight seconds *after*. That variation is not noise to
+be explained away — it is the finding. The two pipelines are unsynchronised, so their completion
+order is a race that lands differently on each push. A gate whose result arrives before the deploy
+on one push and after it on the next is not gating anything on either.
+
+What remains strictly untested is a deploy of a commit that actually fails the gate — proving that
+directly would mean pushing a deliberately broken commit and watching Pages publish it to a live
+site, which is not worth doing to confirm what the ordering and the documentation both already
+establish.
+
+**What decides how bad this is:** whether `main` has branch protection requiring the `validate`
+check. With it, a human cannot merge a red PR and the gate remains effective at the merge boundary.
+Without it, the gate is advisory. That setting was not visible from this session and should be
+checked first.
+
+**Consequence.** The runbook and the workflow describe a deployment path that is not the live one,
+so every verification step in `docs/deployment/cloudflare.md` steps 3-4 now describes something that
+did not happen. If the secrets are later added as documented, **both** paths will deploy the same
+project, racing on every push.
+
+**Fix.** Decide which path is authoritative and delete the other. If Pages Git integration stays:
+require the `validate` check in branch protection, delete the `deploy` job, and rewrite the runbook.
+If the workflow path is preferred: disconnect the Git integration in the Pages project and add the
+two secrets. Not fixed here — it is a deployment-topology decision requiring account access.
+
+**Effort.** 30 minutes either way, once the decision is made.
 
 ---
 
@@ -331,17 +417,32 @@ user might act on are not changed autonomously. Drafts only.
 Luminance-scaled so hue is preserved. Both light backgrounds (`#FAFAF8` page, `#FFFFFF` cards)
 satisfied.
 
-| Token | Current | Ratio | Draft | Ratio |
-|---|---|---:|---|---:|
-| `--gold` (light) | `#9A6F1E` | 4.31:1 | `#966C1D` | **4.51:1** |
-| `--gold-bright` (light, hover) | `#C9973F` | 2.52:1 | `#926D2E` | **4.52:1** |
-| `--ink-faint` (light) | `#8A93A1` | 2.97:1 | `#6D747F` | **4.51:1** |
-| `--ink-faint` (dark) | `#6B7482` | 3.69:1 | `#798393` | **4.55:1** |
+> **Corrected 2026-08-28.** The `--gold-bright` value first drafted here (`#926D2E`) was defective
+> and must not be used. It clears AA against the background, but measures **1.0024:1 against the
+> corrected `--gold` `#966C1D`** — visually identical, so the hover state would disappear entirely,
+> which is worse than today's already-weak 1.7105:1. Caught by an adversarial verifier during the
+> content-and-image specification pass and re-measured before accepting. The table below carries
+> the corrected value.
 
-Note that `--gold` at `#966C1D` only just clears the threshold. If the brand can tolerate a
-slightly deeper gold, more headroom is worth taking. Also worth deciding separately: the `sample`
-badge is 9.28 px at 0.75 opacity — even at a compliant colour it is the least legible text on the
-page, and it is the disclosure that marks four financial figures as fictional.
+| Token | Current | Ratio | Draft | Ratio | vs `--gold` |
+|---|---|---:|---|---:|---:|
+| `--gold` (light) | `#9A6F1E` | 4.31:1 | `#966C1D` | **4.51:1** | — |
+| `--gold-bright` (light, hover) | `#C9973F` | 2.52:1 | **`#7A5716`** | **6.27:1** | **1.39:1** |
+| ~~superseded draft~~ | | | ~~`#926D2E`~~ | ~~4.52:1~~ | ~~**1.00:1** — invisible~~ |
+| `--ink-faint` (light) | `#8A93A1` | 2.97:1 | `#6D747F` | **4.51:1** | — |
+| `--ink-faint` (dark) | `#6B7482` | 3.69:1 | `#798393` | **4.55:1** | — |
+
+Hover now *darkens* rather than lightens, which is a legitimate affordance direction and gives more
+headroom than the original. Pair it with `a:hover { text-decoration-thickness: 2px; }` so the
+affordance does not depend on colour at all.
+
+Note that `--gold` at `#966C1D` clears the threshold by only 0.01. **Do not apply `opacity` to any
+of these three light-theme tokens** — all three re-break at once — and re-run the computation on any
+future change to `--bg`. If the brand can tolerate a deeper gold, more headroom is worth taking.
+
+Also worth deciding separately: the `sample` badge is 9.28 px at 0.75 opacity — even at a compliant
+colour it is the least legible text on the page, and it is the disclosure that marks four financial
+figures as fictional.
 
 ### M1 — the copyright year
 

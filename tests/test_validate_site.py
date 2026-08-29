@@ -305,5 +305,63 @@ class LandmarksArePresent(unittest.TestCase):
                     f"{page.name} has no <main> landmark")
 
 
+class FactCheckLedgerScorecardIsConsistent(unittest.TestCase):
+    """The ledger is the site's credibility asset — README points at it and the
+    landing page advertises it as "finished and public". Its scorecard is a
+    summary of its own table, so it can be checked by counting. It was wrong:
+    the scorecard claimed 15/6/10/7 while the 38 rows are 17/5/10/6. The totals
+    agreed at 38, which is exactly why nobody noticed."""
+
+    MARKERS = {
+        "\u2705": "Confirmed",
+        "\U0001f7e1": "Partly true / overstated",
+        "\u26a0\ufe0f": "Materially wrong",
+        "\u2753": "Unsubstantiated",
+    }
+    LEDGER = ROOT / "docs" / "fact-check-ledger.md"
+
+    def _counts(self):
+        """(row counts, scorecard counts) — scorecard rows excluded from rows."""
+        import collections
+        rows = collections.Counter()
+        score = {}
+        in_scorecard = False
+        for line in self.LEDGER.read_text(encoding="utf-8").splitlines():
+            if line.strip().startswith("## Scorecard"):
+                in_scorecard = True
+                continue
+            if in_scorecard and line.startswith("##"):
+                in_scorecard = False
+            if not line.startswith("|"):
+                continue
+            if re.match(r"^\|\s*-+", line) or line.lower().startswith("| # | claim"):
+                continue
+            hit = [n for m, n in self.MARKERS.items() if m in line]
+            if not hit:
+                continue
+            if in_scorecard:
+                num = re.search(r"\|\s*(\d+)\s*\|\s*$", line)
+                if num:
+                    score[hit[0]] = int(num.group(1))
+            else:
+                rows[hit[0]] += 1
+        return rows, score
+
+    def test_scorecard_matches_the_rows_it_summarises(self):
+        rows, score = self._counts()
+        self.assertTrue(score, "no scorecard counts parsed")
+        for label in self.MARKERS.values():
+            with self.subTest(status=label):
+                self.assertEqual(
+                    score.get(label), rows.get(label, 0),
+                    f"scorecard says {score.get(label)} for {label!r} "
+                    f"but {rows.get(label, 0)} rows are marked that way")
+
+    def test_row_total_matches_readme_claim(self):
+        rows, _ = self._counts()
+        self.assertEqual(sum(rows.values()), 38,
+                         "README.md advertises 38 claims")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
