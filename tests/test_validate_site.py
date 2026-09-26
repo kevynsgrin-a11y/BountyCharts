@@ -191,6 +191,19 @@ class GateCatchesCspBlockedSubresources(unittest.TestCase):
         code, out = run_gate(mutate)
         self.assertEqual(code, 1, "@import slipped past the gate:\n" + out)
 
+    def test_script_from_a_csp_allowed_host_is_not_flagged(self):
+        """site/_headers admits https://www.googletagmanager.com in script-src,
+        so the GA4 loader is allowed at runtime and must not fail the gate."""
+        code, out = run_gate(self._inject(
+            '<script async src="https://www.googletagmanager.com/gtag/js?id=G-TEST1234"></script>'))
+        self.assertEqual(code, 0, "a CSP-allowed script host was flagged:\n" + out)
+
+    def test_non_script_from_a_csp_allowed_script_host_is_caught(self):
+        """The exemption is script-src only: an image from the same host is
+        still governed by img-src and must still fail."""
+        code, out = run_gate(self._inject('<img src="https://www.googletagmanager.com/x.gif" alt="">'))
+        self.assertEqual(code, 1, "a non-script from a script-src host slipped past:\n" + out)
+
     def test_relative_subresource_is_not_flagged(self):
         """Same-origin assets are exactly what the CSP allows -- flagging them
         would train the reader to ignore this check."""
@@ -328,14 +341,25 @@ class CspDoesNotAllowInlineScript(unittest.TestCase):
         """The page really does use inline <style>; removing this would break it."""
         self.assertIn("'unsafe-inline'", self._directive(self._csp(), "style-src"))
 
+    # The only executable scripts allowed: the GA4 loader (admitted by
+    # script-src https://www.googletagmanager.com) and its same-origin config
+    # file (admitted by 'self'). Neither is inline, so 'unsafe-inline' stays out.
+    GA4_SCRIPTS = (
+        re.compile(r'\bsrc="https://www\.googletagmanager\.com/gtag/js\?id=G-[A-Z0-9]+"'),
+        re.compile(r'\bsrc="/assets/ga4\.[0-9a-f]{8}\.js"'),
+    )
+
     def test_no_executable_script_is_served(self):
-        """Guards the assumption the tightened policy rests on."""
+        """Guards the assumption the tightened policy rests on: no inline
+        executable script, and no external script except the GA4 pair."""
         for page in sorted(SITE.rglob("*.html")):
             with self.subTest(page=page.name):
                 src = page.read_text(encoding="utf-8")
                 for tag in re.findall(r"<script\b[^>]*>", src, re.I):
-                    self.assertIn(
-                        "application/ld+json", tag.lower(),
+                    if "application/ld+json" in tag.lower():
+                        continue
+                    self.assertTrue(
+                        any(p.search(tag) for p in self.GA4_SCRIPTS),
                         f"{page.name} serves an executable script: {tag}")
 
 
