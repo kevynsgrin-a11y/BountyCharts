@@ -207,6 +207,23 @@ def is_external(url: str) -> bool:
     return u.startswith(("http://", "https://", "//"))
 
 
+def csp_script_hosts() -> set[str]:
+    """Hosts the site's own CSP (site/_headers) admits in script-src. A script
+    from one of these is allowed at runtime, so it is not a violation."""
+    headers = SITE / "_headers"
+    if not headers.exists():
+        return set()
+    m = re.search(r"script-src\s+([^;\n]+)", headers.read_text(encoding="utf-8"))
+    if not m:
+        return set()
+    return {tok.rstrip("/").lower() for tok in m.group(1).split() if tok.startswith("https://")}
+
+
+def allowed_by_csp(url: str, hosts: set[str]) -> bool:
+    m = re.match(r"(https://[^/?#]+)", url.strip(), re.I)
+    return bool(m) and m.group(1).lower() in hosts
+
+
 def check_no_external_refs() -> None:
     """The CSP is default-src 'self'. A genuine external subresource would be
     blocked at runtime, so catch it here instead of in production.
@@ -218,9 +235,17 @@ def check_no_external_refs() -> None:
     Attribute quoting, URL scheme and rel spelling are all things a contributor
     varies without thinking about it, so match on all the forms a browser
     honours rather than the one this site happens to use today."""
+    script_hosts = csp_script_hosts()
     for page in sorted(SITE.rglob("*.html")):
         src = page.read_text(encoding="utf-8")
         bad: list[str] = []
+
+        # <script src> from a host the CSP's script-src admits is allowed.
+        csp_ok = {
+            m.group(1)
+            for m in re.finditer(r'<script\b[^>]*\bsrc\s*=\s*["\']([^"\']+)["\']', src, re.I)
+            if allowed_by_csp(m.group(1), script_hosts)
+        }
 
         # src= always denotes a fetched subresource (script, img, iframe, ...).
         # Either quote style, and srcset carries a comma-separated candidate list.
@@ -228,7 +253,7 @@ def check_no_external_refs() -> None:
             for value in re.findall(rf'\b{attr}\s*=\s*["\']([^"\']+)["\']', src, re.I):
                 for candidate in value.split(","):
                     url = candidate.strip().split()[0] if candidate.strip() else ""
-                    if url and is_external(url):
+                    if url and is_external(url) and url not in csp_ok:
                         bad.append(url)
 
         # href= only fetches on <link> tags carrying a fetching rel. rel accepts
